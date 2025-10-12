@@ -1,0 +1,42 @@
+version: '3.9'
+
+services:
+  api:
+    build: .
+    container_name: ticmeal-back
+    restart: always
+    depends_on:
+      - db
+    ports: - '3000:3000'
+    env_file: .env
+    envirnment:
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_NAME=${DB_NAME}
+      - JWT_SECRET=${JWT_SECRET}
+      - PORT=3000
+    
+    command: >
+      sh -c "npm run build && npm run start:prod"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    
+  db:
+    image: mysql:8.0
+    container_name: comedores_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASS}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
+    ports:
+      - '3306:3306'
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:
