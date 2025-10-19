@@ -41,11 +41,13 @@ export class Company {
     status: string;
 
     @OneToMany(() => User, (user) => user.company)
-    user: User[];
+    users: User[];
 
     @CreateDateColumn()
     createdAt: Date;
 
     @UpdateDateColumn()
     updatedAt: Date;
+
+
 }
