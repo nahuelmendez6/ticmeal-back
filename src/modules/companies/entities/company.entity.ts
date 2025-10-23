@@ -7,7 +7,7 @@ export class Company {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column({ unique: true })
+    @Column({ unique: true, default: null })
     name: string;   // public name
 
     @Column({ unique: true })
