@@ -23,6 +23,13 @@ export class UsersService {
         return this.userRepo.save(user);
     }
 
+    async findByUsername(username: string) {
+        return this.userRepo.findOne({
+            where: { username },
+            relations: ['company'],
+        })
+    }
+
     async validatePassword(password: string, hash: string): Promise<boolean> {
         return bcrypt.compare(password, hash);
     }
