@@ -38,4 +38,8 @@ export class UsersService {
         return this.userRepo.findOne({ where: { email }, relations: ['company'] });
     }
 
+    async findById(id: number): Promise<User | null> {
+        return this.userRepo.findOne({ where: { id }, relations: ['company'] });
+    }  
+
 }
