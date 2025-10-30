@@ -27,7 +27,7 @@ export class User {
 
     @Column({
         type: 'enum',
-        enum: ['admin', 'diner', 'kitchen', 'kitchen_admin'],
+        enum: ['super_admin', 'admin', 'diner', 'kitchen', 'kitchen_admin'],
         default: 'diner',
     })
     role: string;
