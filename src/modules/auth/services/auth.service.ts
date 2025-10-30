@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { UsersService } from 'src/modules/users/services/user.service';
 import { JwtService } from '@nestjs/jwt';
 import { CreateUserDto } from 'src/modules/users/dto/create.user.dto';
@@ -17,8 +17,55 @@ export class AuthService {
         private readonly jwtService: JwtService,
         @InjectRepository(Company)
         private readonly companyRepo: Repository<Company>,
+        private readonly userRepo: Repository<User>,
         private readonly dataSource: DataSource,
     ) {}
+
+    async registerDiner(userDto: CreateUserDto, currentUser: User) {
+
+        // verificar que el usuario actual es admin de empresa
+        if (currentUser.role !== 'company_admin') {
+            throw new ForbiddenException('Solo los administradores de empresa pueden crear usuarios diner');
+        }
+
+        // obtener la empresa del admin
+        const company = await this.companyRepo.findOne({
+            where: {id: currentUser.company.id},
+        });
+
+        if (!company) {
+            throw new BadRequestException('El administrador no tiene una empresa asociada');
+        }
+
+        // verificar si ya existe un usuario con el mismo email
+        const existing = await this.userRepo.findOne({
+            where: {email: userDto.email}
+        });
+        if (existing) {
+            throw new BadRequestException('El email ya esta registrado') 
+        }
+
+        // generamos nombre de usuario
+        //const username = `${userDto.firstName}@ticmeal`.toLowerCase();
+
+        // generamos pin
+        const pin = Math.floor(1000 + Math.random() * 9000).toString();
+
+        // Hashear pin
+        const saltRounds = 10;
+        const pinHash = await bcrypt.hash(pin, saltRounds);
+
+        // guardar entidad user(diner)
+        const newUser = this.userRepo.create({
+            ...userDto,
+            role:'diner',
+            company: currentUser.company,
+            pinHash,
+        });
+
+        await this.userRepo.save(newUser);
+
+    }
 
     async registerCompany(companyDto: CreateCompanyDto, adminDto: CreateUserDto) {
 
