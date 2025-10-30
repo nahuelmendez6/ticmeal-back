@@ -1,98 +1,109 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Ticmeal Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend construido con NestJS, TypeORM y PostgreSQL.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Requisitos
+- Node.js 18+
+- PostgreSQL 13+
 
-## Description
+## Variables de entorno (.env)
+Crea un archivo `.env` en la raíz con:
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+```
+# App
+PORT=3000
 
-## Project setup
+# DB
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASS=postgres
+DB_NAME=ticmeal
 
-```bash
-$ npm install
+# JWT
+JWT_SECRET=super_secret_key
+JWT_EXPIRES_IN=3600
 ```
 
-## Compile and run the project
-
+## Instalación
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
 ```
 
-## Run tests
-
+## Desarrollo
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run start:dev
 ```
 
-## Deployment
+## Documentación Swagger
+Disponible en `http://localhost:3000/api`.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## Arquitectura
+- `src/config`: configuración de base de datos (TypeORM)
+- `src/common/filters`: manejadores globales de excepciones
+- `src/modules/auth`: autenticación (JWT, guards, decoradores)
+- `src/modules/companies`: CRUD de empresas
+- `src/modules/users`: gestión de usuarios internos
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Autenticación y Autorización
+- JWT Bearer en Authorization header.
+- Decoradores:
+  - `@Public()`: marca endpoints públicos (no requieren JWT)
+  - `@Roles('super_admin' | 'company_admin' | ...)`: restringe por rol
+- Guards globales: `JwtAuthGuard` y `RolesGuard` (respetan `@Public`).
 
+## Endpoints principales
+
+### Auth
+- POST `/auth/register-company` (Public)
+  - Body:
+  ```json
+  {
+    "company": { "name": "ACME", "taxId": "20-123", "industryType": "food" },
+    "admin": { "email": "admin@acme.com", "password": "Secret123" }
+  }
+  ```
+  - Crea la empresa y un usuario `company_admin` con username `acme@ticmeal`.
+
+- POST `/auth/login` (Public)
+  - Body: `{ "username": "acme@ticmeal", "password": "Secret123" }`
+  - Respuesta: `{ "access_token": "..." }`
+
+### Companies
+- GET `/companies` (Role: `super_admin`) — lista todas
+- GET `/companies/:id` (Roles: `super_admin` o dueño del tenant)
+- PATCH `/companies/:id` (Roles: `super_admin` o dueño del tenant)
+- PATCH `/companies/:id/deactivate` (Role: `super_admin`)
+
+Reglas:
+- Unicidad por `name` y `taxId` con errores claros.
+- `company_admin` solo accede a su empresa.
+
+### Users
+- POST `/users/create` (Roles: `company_admin`, `super_admin`)
+  - Crea usuarios dentro del tenant. Si no es `super_admin`, se fuerza `company` desde el JWT.
+- GET `/users` — lista usuarios del tenant; `super_admin` ve todos.
+- GET `/users/:id` — restringido al tenant salvo `super_admin`.
+- DELETE `/users/:id` (Roles: `company_admin`, `super_admin`) — restringido al tenant salvo `super_admin`.
+- GET `/users/profile/me` — devuelve el usuario autenticado.
+
+## Ejemplos de uso con curl
+
+Login y uso de token:
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+TOKEN=$(curl -s -X POST http://localhost:3000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"acme@ticmeal","password":"Secret123"}' | jq -r .access_token)
+
+curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/users
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Tests
+```bash
+npm run test
+```
 
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## Notas de seguridad
+- Passwords hasheadas con bcrypt.
+- Expiración de JWT configurable por `JWT_EXPIRES_IN` (segundos).
+- Validación global con `ValidationPipe` (whitelist y transform).

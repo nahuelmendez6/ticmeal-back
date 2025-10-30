@@ -6,11 +6,16 @@ import { AuthService } from './services/auth.service';
 import { AuthController } from './controllers/auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { CompaniesModule } from '../companies/companies.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Company } from '../companies/entities/company.entity';
 
 @Module({
     imports: [
     UsersModule,
     PassportModule,
+    CompaniesModule,
+    TypeOrmModule.forFeature([Company]),
     JwtModule.registerAsync({
         imports: [ConfigModule],
         inject: [ConfigService],

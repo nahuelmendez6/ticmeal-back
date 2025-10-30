@@ -5,10 +5,9 @@ import { CreateUserDto } from 'src/modules/users/dto/create.user.dto';
 import { CreateCompanyDto } from 'src/modules/companies/dto/create.company.dto';
 import { Company } from 'src/modules/companies/entities/company.entity';
 import { User } from 'src/modules/users/entities/user.entity';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { DataSource } from 'typeorm/browser';
 
 @Injectable()
 export class AuthService {
@@ -25,7 +24,7 @@ export class AuthService {
 
         // verificacion rapida
         const exists = await this.companyRepo.findOne({ where: [{ name: companyDto.name }, { taxId: companyDto.taxId }]});
-        if (exists) throw new BadRequestException('Ya existe una empresa con el mismo nombre');
+        if (exists) throw new BadRequestException('Ya existe una empresa con el mismo nombre o taxId');
 
         // transaccion: Crear company + admin atomicamente
         const result = await this.dataSource.transaction(async (manager) => {
@@ -43,7 +42,7 @@ export class AuthService {
             const userEntity = userRepoTx.create({
                 ...adminDto,
                 username,
-                role: 'admin',
+                role: 'company_admin',
                 company,
             });
 
@@ -54,7 +53,7 @@ export class AuthService {
 
             return { company, admin: savedUser };
 
-        })
+        });
 
         return result;
     }
@@ -63,15 +62,17 @@ export class AuthService {
         const user = await this.userService.findByUsername(username);
         if (!user) throw new UnauthorizedException('Credenciales inválidas');
 
+        const isValid = user.password ? await this.userService.validatePassword(password, user.password) : false;
+        if (!isValid) throw new UnauthorizedException('Credenciales inválidas');
+
         const payload = {
             sub: user.id,
             username: user.username,
             role: user.role,
-            companyId: user.company?.id
+            companyId: user.company?.id,
         };
 
-        return { access_token: this.jwtService.sign(payload) }
+        return { access_token: this.jwtService.sign(payload) };
     }
-
 
 }

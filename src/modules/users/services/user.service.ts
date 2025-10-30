@@ -1,16 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DeepPartial } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { CreateUserDto } from '../dto/create.user.dto';
 import * as bcrypt from 'bcrypt';
+import { Company } from 'src/modules/companies/entities/company.entity';
 
 @Injectable()
 export class UsersService {
 
     constructor(
         @InjectRepository(User)
-        private readonly userRepo: Repository<User>
+        private readonly userRepo: Repository<User>,
+        @InjectRepository(Company)
+        private readonly companyRepo: Repository<Company>,
     ) {}
 
     async createUser(dto: CreateUserDto): Promise<User> {
@@ -18,7 +21,16 @@ export class UsersService {
         const salt = await bcrypt.genSalt();
         const hashedPassword = await bcrypt.hash(dto.password, salt);
 
-        const user = this.userRepo.create({...dto, password: hashedPassword });
+        const partial: DeepPartial<User> = {
+            ...dto,
+            password: hashedPassword,
+        } as any;
+        const user = this.userRepo.create(partial);
+
+        if (dto.companyId) {
+            const companyRef = await this.companyRepo.findOne({ where: { id: dto.companyId } });
+            if (companyRef) user.company = companyRef;
+        }
 
         return this.userRepo.save(user);
     }
@@ -40,6 +52,17 @@ export class UsersService {
 
     async findById(id: number): Promise<User | null> {
         return this.userRepo.findOne({ where: { id }, relations: ['company'] });
-    }  
+    }
 
+    async findAllByCompany(companyId: number): Promise<User[]> {
+        return this.userRepo.find({ where: { company: { id: companyId } }, relations: ['company'] });
+    }
+
+    async findAll(): Promise<User[]> {
+        return this.userRepo.find({ relations: ['company'] });
+    }
+
+    async remove(id: number): Promise<void> {
+        await this.userRepo.delete(id);
+    }
 }
