@@ -68,7 +68,7 @@ export class AuthService {
 
     }
 
-    async registerDiner(userDto: CreateUserDto, currentUser: User) {
+    async registerCompanyAdmin(userDto: CreateUserDto, currentUser: User) {
 
         // verificar que el usuario actual es admin de empresa
         if (currentUser.role !== 'company_admin') {
@@ -93,7 +93,51 @@ export class AuthService {
         }
 
         // generamos nombre de usuario
-        //const username = `${userDto.firstName}@ticmeal`.toLowerCase();
+        const username = `${userDto.firstName}@${currentUser.company.name}`.toLowerCase();
+
+        // generamos pin
+        const pin = Math.floor(1000 + Math.random() * 9000).toString();
+
+        // Hashear pin
+        const saltRounds = 10;
+        const pinHash = await bcrypt.hash(pin, saltRounds);
+
+        // guardar entidad user(diner)
+        const newUser = this.userRepo.create({
+            ...userDto,
+            role:'company_admin',
+            company: currentUser.company,
+            pinHash,
+        });
+
+        await this.userRepo.save(newUser);
+
+
+    }
+
+    async registerDiner(userDto: CreateUserDto, currentUser: User) {
+
+        // verificar que el usuario actual es admin de empresa
+        if (currentUser.role !== 'company_admin') {
+            throw new ForbiddenException('Solo los administradores de empresa pueden crear usuarios diner');
+        }
+
+        // obtener la empresa del admin
+        const company = await this.companyRepo.findOne({
+            where: {id: currentUser.company.id},
+        });
+
+        if (!company) {
+            throw new BadRequestException('El administrador no tiene una empresa asociada');
+        }
+
+        // verificar si ya existe un usuario con el mismo email
+        const existing = await this.userRepo.findOne({
+            where: {email: userDto.email}
+        });
+        if (existing) {
+            throw new BadRequestException('El email ya esta registrado') 
+        }
 
         // generamos pin
         const pin = Math.floor(1000 + Math.random() * 9000).toString();

@@ -35,6 +35,23 @@ export class UsersService {
         return this.userRepo.save(user);
     }
 
+    async generateUniqueUsername(firstName: string, companyId: number, companyName: string): Promise<String> {
+        const existingUsers = await this.userRepo.find({
+            where: { company: {id: companyId }, username: Like(`${firstName}%@${companyName}`)},
+            select: ['username']
+        });
+
+        const usedNumbers = existingUsers.map(u => {
+            const match = u.username.match(new RegExp(`^${firstName}(\\d*)@${companyName}$`));
+            return match && match[1] ? parseInt(match[1]) : 0;
+        });
+
+        let suffix = 1;
+        while (usedNumbers.includes(suffix)) suffix++;
+
+        return `${firstName}${suffix}@${companyName}`.toLowerCase();
+    }
+
     async findByUsername(username: string) {
         return this.userRepo.findOne({
             where: { username },
