@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeepPartial } from 'typeorm';
+import { Repository, DeepPartial, Like } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { CreateUserDto } from '../dto/create.user.dto';
 import * as bcrypt from 'bcrypt';
@@ -35,7 +35,7 @@ export class UsersService {
         return this.userRepo.save(user);
     }
 
-    async generateUniqueUsername(firstName: string, companyId: number, companyName: string): Promise<String> {
+    async generateUniqueUsername(firstName: string, companyId: number, companyName: string): Promise<string> {
         const existingUsers = await this.userRepo.find({
             where: { company: {id: companyId }, username: Like(`${firstName}%@${companyName}`)},
             select: ['username']

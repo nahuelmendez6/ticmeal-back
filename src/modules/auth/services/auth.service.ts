@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  UnauthorizedException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { UsersService } from 'src/modules/users/services/user.service';
 import { JwtService } from '@nestjs/jwt';
 import { CreateUserDto } from 'src/modules/users/dto/create.user.dto';
@@ -8,209 +13,175 @@ import { User } from 'src/modules/users/entities/user.entity';
 import { Repository, DataSource } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
+import { UserRole } from '../../users/enums/user-role.enum';
 
 @Injectable()
 export class AuthService {
+  constructor(
+    private readonly userService: UsersService,
+    private readonly jwtService: JwtService,
+    @InjectRepository(Company)
+    private readonly companyRepo: Repository<Company>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+    private readonly dataSource: DataSource,
+  ) {}
 
-    constructor(
-        private readonly userService: UsersService,
-        private readonly jwtService: JwtService,
-        @InjectRepository(Company)
-        private readonly companyRepo: Repository<Company>,
-        private readonly userRepo: Repository<User>,
-        private readonly dataSource: DataSource,
-    ) {}
+  // ==============================
+  // Registro de usuarios internos
+  // ==============================
 
-    async registerKitchenAdmin(userDto: CreateUserDto, currentUser: User) {
+  async registerKitchenAdmin(userDto: CreateUserDto, currentUser: User) {
+    return this.registerCompanyUser(userDto, currentUser, UserRole.KITCHEN_ADMIN);
+  }
 
-        // verificar que el usuario actual es admin de empresa
-        if (currentUser.role !== 'company_admin') {
-            throw new ForbiddenException('Solo los administradores de empresa pueden crear usuarios diner');
-        }
+  async registerCompanyAdmin(userDto: CreateUserDto, currentUser: User) {
+    return this.registerCompanyUser(userDto, currentUser, UserRole.COMPANY_ADMIN);
+  }
 
-        // obtener la empresa del admin
-        const company = await this.companyRepo.findOne({
-            where: {id: currentUser.company.id},
-        });
+  async registerDiner(userDto: CreateUserDto, currentUser: User) {
+    return this.registerCompanyUser(userDto, currentUser, UserRole.DINER);
+  }
 
-        if (!company) {
-            throw new BadRequestException('El administrador no tiene una empresa asociada');
-        }
+  // ==============================
+  // Registro de nueva empresa + admin
+  // ==============================
 
-        // verificar si ya existe un usuario con el mismo email
-        const existing = await this.userRepo.findOne({
-            where: {email: userDto.email}
-        });
-        if (existing) {
-            throw new BadRequestException('El email ya esta registrado') 
-        }
+  async registerCompany(companyDto: CreateCompanyDto, adminDto: CreateUserDto) {
+    const exists = await this.companyRepo.findOne({
+      where: [{ name: companyDto.name }, { taxId: companyDto.taxId }],
+    });
+    if (exists)
+      throw new BadRequestException(
+        'Ya existe una empresa con el mismo nombre o taxId',
+      );
 
-        // generamos nombre de usuario
-        const username = `${userDto.firstName}@${currentUser.company.name}`.toLowerCase();
+    return this.dataSource.transaction(async (manager) => {
+      const compRepoTx = manager.getRepository(Company);
+      const userRepoTx = manager.getRepository(User);
 
-        // generamos pin
-        const pin = Math.floor(1000 + Math.random() * 9000).toString();
+      const company = compRepoTx.create(companyDto);
+      await compRepoTx.save(company);
 
-        // Hashear pin
-        const saltRounds = 10;
-        const pinHash = await bcrypt.hash(pin, saltRounds);
+      const username = `${company.name}@ticmeal`.toLowerCase();
 
-        // guardar entidad user(diner)
-        const newUser = this.userRepo.create({
-            ...userDto,
-            role:'kitchen_admin',
-            company: currentUser.company,
-            pinHash,
-        });
+      const salt = await bcrypt.genSalt();
+      const passwordHash = await bcrypt.hash(adminDto.password, salt);
 
-        await this.userRepo.save(newUser);
+      const adminUser = userRepoTx.create({
+        ...adminDto,
+        username,
+        password: passwordHash,
+        role: UserRole.COMPANY_ADMIN,
+        company,
+      });
 
+      const savedAdmin = await userRepoTx.save(adminUser);
 
+      return { company, admin: savedAdmin };
+    });
+  }
+
+  // ==============================
+  // Login
+  // ==============================
+
+  async login(username: string, password: string) {
+    const user = await this.userService.findByUsername(username);
+    if (!user) throw new UnauthorizedException('Credenciales inválidas');
+
+    const isValid = user.password
+      ? await this.userService.validatePassword(password, user.password)
+      : false;
+
+    if (!isValid) throw new UnauthorizedException('Credenciales inválidas');
+
+    const payload = {
+      sub: user.id,
+      username: user.username,
+      role: user.role,
+      companyId: user.company?.id,
+    };
+
+    return { access_token: this.jwtService.sign(payload) };
+  }
+
+  // ==============================
+  // Métodos privados reutilizables
+  // ==============================
+
+  private async registerCompanyUser(
+    userDto: CreateUserDto,
+    currentUser: User,
+    role: UserRole,
+  ) {
+    // 1. Validar permisos
+    this.ensureIsCompanyAdmin(currentUser);
+
+    // 2. Obtener empresa
+    const company = await this.getCompanyOrThrow(currentUser.company.id);
+
+    // 3. Verificar duplicados
+    await this.ensureEmailIsUnique(userDto.email);
+
+    // 4. Generar username si aplica
+    let username: string | undefined;
+    if (role !== UserRole.DINER) {
+      if (!userDto.firstName)
+        throw new BadRequestException(
+          'El nombre es obligatorio para crear username',
+        );
+
+      username = await this.userService.generateUniqueUsername(
+        userDto.firstName,
+        company.id,
+        company.name,
+      );
     }
 
-    async registerCompanyAdmin(userDto: CreateUserDto, currentUser: User) {
+    // 5. Generar PIN y hash
+    const pin = this.generatePin();
+    const pinHash = await this.hashPin(pin);
 
-        // verificar que el usuario actual es admin de empresa
-        if (currentUser.role !== 'company_admin') {
-            throw new ForbiddenException('Solo los administradores de empresa pueden crear usuarios diner');
-        }
+    // 6. Crear usuario
+    const newUser = this.userRepo.create({
+      ...userDto,
+      username,
+      role,
+      company,
+      pinHash,
+    });
 
-        // obtener la empresa del admin
-        const company = await this.companyRepo.findOne({
-            where: {id: currentUser.company.id},
-        });
+    await this.userRepo.save(newUser);
+    return newUser;
+  }
 
-        if (!company) {
-            throw new BadRequestException('El administrador no tiene una empresa asociada');
-        }
-
-        // verificar si ya existe un usuario con el mismo email
-        const existing = await this.userRepo.findOne({
-            where: {email: userDto.email}
-        });
-        if (existing) {
-            throw new BadRequestException('El email ya esta registrado') 
-        }
-
-        // generamos nombre de usuario
-        const username = `${userDto.firstName}@${currentUser.company.name}`.toLowerCase();
-
-        // generamos pin
-        const pin = Math.floor(1000 + Math.random() * 9000).toString();
-
-        // Hashear pin
-        const saltRounds = 10;
-        const pinHash = await bcrypt.hash(pin, saltRounds);
-
-        // guardar entidad user(diner)
-        const newUser = this.userRepo.create({
-            ...userDto,
-            role:'company_admin',
-            company: currentUser.company,
-            pinHash,
-        });
-
-        await this.userRepo.save(newUser);
-
-
+  private ensureIsCompanyAdmin(user: User) {
+    if (user.role !== UserRole.COMPANY_ADMIN) {
+      throw new ForbiddenException(
+        'Solo los administradores de empresa pueden crear usuarios',
+      );
     }
+  }
 
-    async registerDiner(userDto: CreateUserDto, currentUser: User) {
+  private async getCompanyOrThrow(companyId: number): Promise<Company> {
+    const company = await this.companyRepo.findOne({ where: { id: companyId } });
+    if (!company)
+      throw new BadRequestException('El administrador no tiene una empresa asociada');
+    return company;
+  }
 
-        // verificar que el usuario actual es admin de empresa
-        if (currentUser.role !== 'company_admin') {
-            throw new ForbiddenException('Solo los administradores de empresa pueden crear usuarios diner');
-        }
+  private async ensureEmailIsUnique(email: string) {
+    const existing = await this.userRepo.findOne({ where: { email } });
+    if (existing) throw new BadRequestException('El email ya está registrado');
+  }
 
-        // obtener la empresa del admin
-        const company = await this.companyRepo.findOne({
-            where: {id: currentUser.company.id},
-        });
+  private generatePin(): string {
+    return Math.floor(1000 + Math.random() * 9000).toString();
+  }
 
-        if (!company) {
-            throw new BadRequestException('El administrador no tiene una empresa asociada');
-        }
-
-        // verificar si ya existe un usuario con el mismo email
-        const existing = await this.userRepo.findOne({
-            where: {email: userDto.email}
-        });
-        if (existing) {
-            throw new BadRequestException('El email ya esta registrado') 
-        }
-
-        // generamos pin
-        const pin = Math.floor(1000 + Math.random() * 9000).toString();
-
-        // Hashear pin
-        const saltRounds = 10;
-        const pinHash = await bcrypt.hash(pin, saltRounds);
-
-        // guardar entidad user(diner)
-        const newUser = this.userRepo.create({
-            ...userDto,
-            role:'diner',
-            company: currentUser.company,
-            pinHash,
-        });
-
-        await this.userRepo.save(newUser);
-
-    }
-
-    async registerCompany(companyDto: CreateCompanyDto, adminDto: CreateUserDto) {
-
-        // verificacion rapida
-        const exists = await this.companyRepo.findOne({ where: [{ name: companyDto.name }, { taxId: companyDto.taxId }]});
-        if (exists) throw new BadRequestException('Ya existe una empresa con el mismo nombre o taxId');
-
-        // transaccion: Crear company + admin atomicamente
-        const result = await this.dataSource.transaction(async (manager) => {
-            // usar repositorios del manager para que todo quede dentro de la misma tx
-
-            const compRepoTx = manager.getRepository(Company);
-            const userRepoTx = manager.getRepository(User);
-
-            const company = compRepoTx.create(companyDto);
-            await compRepoTx.save(company);
-
-            // Generar username
-            const username = `${company.name}@ticmeal`.toLowerCase();
-
-            const userEntity = userRepoTx.create({
-                ...adminDto,
-                username,
-                role: 'company_admin',
-                company,
-            });
-
-            const salt = await bcrypt.genSalt();
-            userEntity.password = await bcrypt.hash(adminDto.password, salt);
-
-            const savedUser = await userRepoTx.save(userEntity);
-
-            return { company, admin: savedUser };
-
-        });
-
-        return result;
-    }
-
-    async login(username: string, password: string) {
-        const user = await this.userService.findByUsername(username);
-        if (!user) throw new UnauthorizedException('Credenciales inválidas');
-
-        const isValid = user.password ? await this.userService.validatePassword(password, user.password) : false;
-        if (!isValid) throw new UnauthorizedException('Credenciales inválidas');
-
-        const payload = {
-            sub: user.id,
-            username: user.username,
-            role: user.role,
-            companyId: user.company?.id,
-        };
-
-        return { access_token: this.jwtService.sign(payload) };
-    }
-
+  private async hashPin(pin: string): Promise<string> {
+    const saltRounds = 10;
+    return bcrypt.hash(pin, saltRounds);
+  }
 }
