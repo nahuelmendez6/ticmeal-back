@@ -9,33 +9,31 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CompaniesModule } from '../companies/companies.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Company } from '../companies/entities/company.entity';
+import { User } from '../users/entities/user.entity';
+import { MailModule } from '../mail/mail.module'; // 👈 importante para los correos
 
 @Module({
-    imports: [
+  imports: [
     UsersModule,
     PassportModule,
     CompaniesModule,
-    TypeOrmModule.forFeature([Company]),
+    MailModule, 
+    TypeOrmModule.forFeature([Company, User]), 
     JwtModule.registerAsync({
-        imports: [ConfigModule],
-        inject: [ConfigService],
-        useFactory: async (configService: ConfigService) => {
-            const secret = configService.get<string>('JWT_SECRET') || 'default_secret';
-            const expiresInEnv = configService.get<string>('JWT_EXPIRES_IN');
-            const expiresIn = expiresInEnv ? Number(expiresInEnv) : 3600; // segundos
-
-            return {
-                secret,
-                signOptions: {
-                    expiresIn, // número
-                },
-            };
-        },
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => {
+        const secret = configService.get<string>('JWT_SECRET') || 'default_secret';
+        const expiresInEnv = configService.get<string>('JWT_EXPIRES_IN');
+        const expiresIn = expiresInEnv ? Number(expiresInEnv) : 3600;
+        return {
+          secret,
+          signOptions: { expiresIn },
+        };
+      },
     }),
-
-    ],
-    providers: [AuthService, JwtStrategy],
-    controllers: [AuthController],
+  ],
+  providers: [AuthService, JwtStrategy],
+  controllers: [AuthController],
 })
-
 export class AuthModule {}

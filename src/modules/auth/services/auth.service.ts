@@ -14,6 +14,7 @@ import { Repository, DataSource } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '../../users/enums/user-role.enum';
+import { MailService } from 'src/modules/mail/services/mail.service';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +26,7 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly dataSource: DataSource,
+    private readonly mailService: MailService, 
   ) {}
 
   // ==============================
@@ -127,13 +129,13 @@ export class AuthService {
     // 4. Generar username si aplica
     let username: string | undefined;
     if (role !== UserRole.DINER) {
-      if (!userDto.firstName)
+      if (!userDto.firsName)
         throw new BadRequestException(
           'El nombre es obligatorio para crear username',
         );
 
       username = await this.userService.generateUniqueUsername(
-        userDto.firstName,
+        userDto.firsName,
         company.id,
         company.name,
       );
@@ -153,6 +155,10 @@ export class AuthService {
     });
 
     await this.userRepo.save(newUser);
+
+    // Enviar credenciales
+    await this.mailService.sendUserCredentials(newUser, company, undefined, pin);
+
     return newUser;
   }
 
