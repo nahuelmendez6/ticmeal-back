@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Matches, IsInt } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Matches, IsInt, IsArray } from 'class-validator';
 
 export class CreateUserDto {
   @IsOptional()
@@ -31,4 +31,9 @@ export class CreateUserDto {
   @IsOptional()
   @IsInt()
   companyId?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  observationsIds: number[];
 }

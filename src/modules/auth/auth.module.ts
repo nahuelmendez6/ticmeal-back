@@ -10,6 +10,7 @@ import { CompaniesModule } from '../companies/companies.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Company } from '../companies/entities/company.entity';
 import { User } from '../users/entities/user.entity';
+import { Observation } from '../users/entities/observation.entity';
 import { MailModule } from '../mail/mail.module'; // 👈 importante para los correos
 
 @Module({
@@ -18,7 +19,7 @@ import { MailModule } from '../mail/mail.module'; // 👈 importante para los co
     PassportModule,
     CompaniesModule,
     MailModule, 
-    TypeOrmModule.forFeature([Company, User]), 
+    TypeOrmModule.forFeature([Company, User, Observation]), 
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

@@ -1,5 +1,14 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, 
+        PrimaryGeneratedColumn, 
+        Column, 
+        ManyToOne, 
+        ManyToMany,
+        CreateDateColumn, 
+        UpdateDateColumn,
+        JoinTable } from 'typeorm';
 import { Company } from 'src/modules/companies/entities/company.entity'
+
+import { Observation } from './observation.entity';
 
 @Entity({ name: 'users'})
 export class User {
@@ -34,6 +43,14 @@ export class User {
 
     @ManyToOne(() => Company, (company) => company.users)
     company: Company;
+
+    @ManyToMany(() => Observation, (observation) => observation.users, { cascade: true })
+    @JoinTable({
+        name: 'user_observations', // nombre personalizado de la tabla intermedia
+        joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+        inverseJoinColumn: { name: 'observations_id', referencedColumnName: 'id' },
+    })
+    observations: Observation[];
 
     @Column({ default: true })
     isActive: boolean;

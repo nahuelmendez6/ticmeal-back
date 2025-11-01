@@ -10,11 +10,13 @@ import { CreateUserDto } from 'src/modules/users/dto/create.user.dto';
 import { CreateCompanyDto } from 'src/modules/companies/dto/create.company.dto';
 import { Company } from 'src/modules/companies/entities/company.entity';
 import { User } from 'src/modules/users/entities/user.entity';
+import { Observation } from 'src/modules/users/entities/observation.entity';
 import { Repository, DataSource } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '../../users/enums/user-role.enum';
 import { MailService } from 'src/modules/mail/services/mail.service';
+import { In } from 'typeorm';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +27,8 @@ export class AuthService {
     private readonly companyRepo: Repository<Company>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Observation)
+    private readonly observationRepo: Repository<Observation>,
     private readonly dataSource: DataSource,
     private readonly mailService: MailService, 
   ) {}
@@ -145,13 +149,23 @@ export class AuthService {
     const pin = this.generatePin();
     const pinHash = await this.hashPin(pin);
 
-    // 6. Crear usuario
+    // 6. Buscar observaciones opcionales
+    let observations: Observation[] = [];
+    if (userDto.observationsIds && userDto.observationsIds.length > 0) {
+      observations = await this.observationRepo.find({
+        where: { id: In(userDto.observationsIds) },
+      });
+    }
+
+
+    // 7. Crear usuario
     const newUser = this.userRepo.create({
       ...userDto,
       username,
       role,
       company,
       pinHash,
+      observations,
     });
 
     await this.userRepo.save(newUser);
