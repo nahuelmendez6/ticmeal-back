@@ -9,7 +9,7 @@ import { Company } from 'src/modules/companies/entities/company.entity';
  * vinculada a un registro de la tabla companies
  */
 
-export abstract class baseTenantentity {
+export abstract class BaseTenantEntity {
     /**
      * Relacion ManyToOne con la entidad Company.
      * 
