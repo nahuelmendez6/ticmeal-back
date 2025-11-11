@@ -30,14 +30,15 @@ export class TenantContextService {
      * @param companyId - ID del tenant al que se intenta acceder
      * @throws ForbiddenException si el usuario no tiene permiso
      */
-    ensuereCompanyAccess(user: User, companyId: number): void {
+    ensureCompanyAccess(user: User, companyId: number): void {
         if (!user) throw new ForbiddenException('No autenticado');
 
         // Los super_admin tienen acceso a todos los tenants
         if (user.role === 'super_admin') return;
 
         // Si el usuario pertenece a otra empresa, se deniega el acceso
-        if (user.company?.id !== companyId) {
+        const userCompanyId = user.company?.id ?? (user as any).companyId;
+        if (userCompanyId !== companyId) {
             throw new ForbiddenException('No tienes acceso a este tenant');
         }
     }

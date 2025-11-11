@@ -1,9 +1,21 @@
-import { Body, Controller, Get, Param, Post, Delete, UseGuards, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Delete,
+  UseGuards,
+  Req,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { UsersService } from '../services/user.service';
 import { CreateUserDto } from '../dto/create.user.dto';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { Roles } from 'src/modules/auth/decorators/roles.decorators';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
+import { Tenant } from 'src/common/decorators/tenant-decorator';
 import type { Request } from 'express';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -11,57 +23,104 @@ import type { Request } from 'express';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  // company_admin puede crear usuarios de su empresa
   @Roles('company_admin', 'super_admin')
   @Post('create')
-  async create(@Body() dto: CreateUserDto, @Req() req: Request) {
+  async create(
+    @Body() dto: CreateUserDto,
+    @Tenant() tenantId: number | undefined,
+    @Req() req: Request,
+  ) {
     const user: any = (req as any).user;
+    
+    // Si no es super_admin, usar el tenantId del usuario autenticado
     if (user.role !== 'super_admin') {
-      (dto as any).companyId = user.company?.id;
+      if (!tenantId) {
+        throw new ForbiddenException('No se pudo determinar el tenant');
+      }
+      (dto as any).companyId = tenantId;
     }
+    
     return this.usersService.createUser(dto as any);
   }
 
-  // Lista usuarios del tenant; super_admin ve todos
   @Get()
-  async list(@Req() req: Request) {
+  async list(@Tenant() tenantId: number | undefined, @Req() req: Request) {
     const user: any = (req as any).user;
+    
+    // Los super_admin pueden ver todos los usuarios
     if (user.role === 'super_admin') {
       return this.usersService.findAll();
     }
-    return this.usersService.findAllByCompany(user.company.id);
+    
+    // Los demás solo ven usuarios de su tenant
+    if (!tenantId) {
+      throw new ForbiddenException('No se pudo determinar el tenant');
+    }
+    
+    return this.usersService.findAllForTenant(tenantId);
   }
 
-  // Obtener un usuario por id, restringido al tenant salvo super_admin
   @Get(':id')
-  async getById(@Param('id') id: string, @Req() req: Request) {
+  async getById(
+    @Param('id') id: string,
+    @Tenant() tenantId: number | undefined,
+    @Req() req: Request,
+  ) {
     const userReq: any = (req as any).user;
-    const found = await this.usersService.findById(Number(id));
-    if (!found) return null;
-    if (userReq.role !== 'super_admin' && found.company?.id !== userReq.company?.id) {
-      return null;
+    
+    // Los super_admin pueden ver cualquier usuario
+    if (userReq.role === 'super_admin') {
+      const found = await this.usersService.findById(Number(id));
+      if (!found) {
+        throw new NotFoundException('Usuario no encontrado');
+      }
+      return found;
     }
+    
+    // Los demás solo pueden ver usuarios de su tenant
+    if (!tenantId) {
+      throw new ForbiddenException('No se pudo determinar el tenant');
+    }
+    
+    const found = await this.usersService.findByIdForTenant(Number(id), tenantId);
+    if (!found) {
+      throw new NotFoundException('Usuario no encontrado o sin permisos');
+    }
+    
     return found;
   }
 
-  // Eliminar usuario: company_admin puede eliminar solo de su tenant; super_admin cualquiera
   @Roles('company_admin', 'super_admin')
   @Delete(':id')
-  async remove(@Param('id') id: string, @Req() req: Request) {
+  async remove(
+    @Param('id') id: string,
+    @Tenant() tenantId: number | undefined,
+    @Req() req: Request,
+  ) {
     const userReq: any = (req as any).user;
-    const found = await this.usersService.findById(Number(id));
-    if (!found) return { deleted: false };
-    if (userReq.role !== 'super_admin' && found.company?.id !== userReq.company?.id) {
-      return { deleted: false };
+    
+    // Los super_admin pueden eliminar cualquier usuario
+    if (userReq.role === 'super_admin') {
+      await this.usersService.remove(Number(id));
+      return { deleted: true };
     }
-    await this.usersService.remove(Number(id));
+    
+    // Los demás solo pueden eliminar usuarios de su tenant
+    if (!tenantId) {
+      throw new ForbiddenException('No se pudo determinar el tenant');
+    }
+    
+    await this.usersService.removeForTenant(Number(id), tenantId);
     return { deleted: true };
   }
 
-  // Perfil del usuario autenticado
   @Get('profile/me')
   async profile(@Req() req: Request) {
     const user: any = (req as any).user;
-    return this.usersService.findById(user.id);
+    const found = await this.usersService.findById(user.id);
+    if (!found) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    return found;
   }
 }

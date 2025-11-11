@@ -1,8 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from './user.entity';
+import { Company } from 'src/modules/companies/entities/company.entity';
+import { BaseTenantEntity } from 'src/common/entities/base-tenant.entity';
 
 @Entity({ name: 'observations' })
-export class Observation {
+export class Observation extends BaseTenantEntity {
   @PrimaryGeneratedColumn()
   id: number;
 

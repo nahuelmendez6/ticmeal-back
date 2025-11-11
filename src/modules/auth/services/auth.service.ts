@@ -149,12 +149,22 @@ export class AuthService {
     const pin = this.generatePin();
     const pinHash = await this.hashPin(pin);
 
-    // 6. Buscar observaciones opcionales
+    // 6. Buscar observaciones opcionales (solo del tenant del usuario)
     let observations: Observation[] = [];
     if (userDto.observationsIds && userDto.observationsIds.length > 0) {
       observations = await this.observationRepo.find({
-        where: { id: In(userDto.observationsIds) },
+        where: { 
+          id: In(userDto.observationsIds),
+          companyId: company.id, // Filtrar por tenant
+        },
       });
+      
+      // Verificar que todas las observaciones solicitadas pertenezcan al tenant
+      if (observations.length !== userDto.observationsIds.length) {
+        throw new BadRequestException(
+          'Una o más observaciones no pertenecen a tu empresa o no existen'
+        );
+      }
     }
 
 

@@ -5,6 +5,8 @@ import { getDatabaseConfig } from './config/database.config';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { CompaniesModule } from './modules/companies/companies.module';
+import { TenantContextService } from './common/context/tenant-context.service';
+import { TenantInterceptor } from './common/interceptors/tenant-interceptor';
 
 /**
  * Modulo raiz de la aplicación
@@ -22,5 +24,10 @@ import { CompaniesModule } from './modules/companies/companies.module';
     UsersModule,
     CompaniesModule,
   ],
+  providers: [
+    TenantContextService,
+    TenantInterceptor,
+  ],
+  exports: [TenantContextService, TenantInterceptor],
 })
 export class AppModule {}
