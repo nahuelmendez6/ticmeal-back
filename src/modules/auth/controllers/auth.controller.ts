@@ -75,5 +75,11 @@ export class AuthController {
       return this.authService.registerCompanyAdmin(dto, currentUser);
     }
 
+    @Public()
+    @Post('verify-registration')
+    async verifyRegistration(@Body() body: { email: string; code: string}) {
+      return this.authService.verifyRegistration(body.email, body.code);
+    }
+
 
 }

@@ -33,4 +33,25 @@ export class MailService {
         }
     }
 
+    async sendVerificationCode(
+        user: User,
+        company: Company,
+        verificationCode: string
+    ) {
+        try {
+            await this.mailerService.sendMail({
+                to: user.email,
+                subject: `Código de verificación para ${company.name}`,
+                template: 'email-verification', // nombre del archivo sin .hbs
+                context: {
+                    firstName: user.firsName ?? 'usuario',
+                    verificationCode: verificationCode,
+                    companyName: company.name,
+                },
+            });
+        } catch (error) {
+            console.error(`Error enviando email a ${user.email}:`, error);
+        }
+    }
+
 }

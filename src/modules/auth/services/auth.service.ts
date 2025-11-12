@@ -49,6 +49,53 @@ export class AuthService {
     return this.registerCompanyUser(userDto, currentUser, UserRole.DINER);
   }
 
+
+  // ======================================
+  // Verificacion de codigo
+  // ======================================
+  async verifyRegistration(email: string, code: string) {
+      const user = await this.userRepo.findOne({
+          where: { email, verificationCode: code },
+      });
+
+      if (!user) {
+          throw new BadRequestException('Código o email no válido.');
+      }
+      
+      // Primero, verifica que el campo no sea null antes de intentar usarlo
+      if (!user.verificationCodeExpiresAt) {
+          // Esto indica una inconsistencia de datos, o que ya fue verificado y limpiado,
+          // por lo que el código no debería funcionar.
+          throw new BadRequestException('El código de verificación no es válido o ya fue utilizado.');
+      }
+      
+      // Ahora que TypeScript sabe que NO es null (Type Narrowing), 
+      // puedes usarlo de forma segura para la comparación.
+      if (user.verificationCodeExpiresAt < new Date()) {
+          throw new BadRequestException('El código de verificación ha expirado. Por favor, solicite uno nuevo.');
+      }
+      
+      // ----------------------------------------------------
+
+      // 3. Verificar la cuenta
+      user.isEmailVerified = true;
+      user.verificationCode = null;
+      user.verificationCodeExpiresAt = null; // Asignar 'null' ya está bien si el tipo es Date | null
+
+      await this.userRepo.save(user);
+      
+      return { 
+          message: 'Cuenta verificada exitosamente. Ahora puede iniciar sesión.',
+          user: { 
+              id: user.id, 
+              email: user.email, 
+              isEmailVerified: user.isEmailVerified 
+          } 
+      };
+  }
+
+
+
   // ==============================
   // Registro de nueva empresa + admin
   // ==============================
@@ -74,17 +121,44 @@ export class AuthService {
       const salt = await bcrypt.genSalt();
       const passwordHash = await bcrypt.hash(adminDto.password, salt);
 
+      // ---- logica de codifo de verificacion ----
+      const verificationCode = generateVerificationCode();
+      const verificationCodeExpiresAt = getVerificationCodeExpiration();
+
+      // -----------------------------------------
+
       const adminUser = userRepoTx.create({
         ...adminDto,
         username,
         password: passwordHash,
         role: UserRole.COMPANY_ADMIN,
         company,
+        isEmailVerified: false,
+        verificationCode,  // guardar el codigo generado
+        verificationCodeExpiresAt, // guardar la expiracion
       });
 
       const savedAdmin = await userRepoTx.save(adminUser);
 
-      return { company, admin: savedAdmin };
+      // aca va envio de email
+      if (adminDto.email) {
+        await this.mailService.sendVerificationCode(
+          savedAdmin,
+          company,
+          verificationCode
+        )
+      }
+
+
+  return { 
+    company, 
+    admin: { 
+      id: savedAdmin.id, 
+      username: savedAdmin.username, 
+      email: savedAdmin.email, 
+      isEmailVerified: savedAdmin.isEmailVerified // Indicar el estado
+        } 
+      };
     });
   }
 
@@ -215,3 +289,18 @@ export class AuthService {
     return bcrypt.hash(pin, saltRounds);
   }
 }
+
+// Helper para generar codigo de verifiacion
+const generateVerificationCode = (): string => {
+  // genera un codigo aleatoriode 6 digitos
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// Helper para calcular la expiración
+const getVerificationCodeExpiration = (): Date => {
+  const expires = new Date();
+  expires.setMinutes(expires.getMinutes() + 10);
+  return expires;
+}
+
+

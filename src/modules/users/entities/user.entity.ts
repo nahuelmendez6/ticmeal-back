@@ -35,6 +35,18 @@ export class User extends BaseTenantEntity {
   @Column({ nullable: true })
   lastName: string;
 
+  @Column({ default: false})
+  isEmailVerified: boolean;
+
+  // Campo que almacena el código de verificación (una cadena de 6 dígitos o un token)
+  @Column({ nullable: true, type: 'varchar', length: 6 }) // <-- Especifica 'varchar' y un length apropiado
+  verificationCode: string | null; // <-- Asegúrate de que el tipo sea 'string' o 'string | null'
+    
+  // El campo de fecha que ya corregimos:
+  @Column({ type: 'timestamp', nullable: true })
+  verificationCodeExpiresAt: Date | null;
+
+
   @Column({
     type: 'enum',
     enum: ['super_admin', 'company_admin', 'diner', 'kitchen', 'kitchen_admin'],

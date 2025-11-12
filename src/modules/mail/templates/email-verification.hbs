@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      body { font-family: Arial, sans-serif; line-height: 1.6; background-color: #f4f4f4; margin: 0; padding: 0; }
+      .container { max-width: 600px; margin: 30px auto; padding: 20px; background-color: #ffffff; border-radius: 10px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); }
+      .header { text-align: center; font-size: 24px; font-weight: bold; color: #1e88e5; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 20px; }
+      .content { font-size: 16px; color: #333; }
+      .code-box { 
+        margin: 25px 0; 
+        padding: 15px; 
+        background: #e3f2fd; /* Fondo azul claro */
+        border-radius: 8px; 
+        text-align: center;
+        border: 1px dashed #90caf9;
+      }
+      .code { 
+        font-size: 32px; 
+        font-weight: bold; 
+        color: #1e88e5; 
+        letter-spacing: 5px;
+        display: inline-block;
+        padding: 5px 10px;
+        background-color: #fff;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+      .expiration { font-size: 14px; color: #e53935; margin-top: 10px; }
+      .footer { margin-top: 30px; font-size: 12px; color: #666; text-align: center; border-top: 1px solid #eee; padding-top: 15px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">Verificación de Cuenta de {{companyName}} 🔒</div>
+      <div class="content">
+        <p>Hola <b>{{firstName}}</b>,</p>
+        <p>Gracias por registrar tu empresa. Para activar tu cuenta de administrador, por favor utiliza el siguiente código de verificación en la aplicación:</p>
+        
+        <div class="code-box">
+          <p style="margin-bottom: 5px;">Tu Código de Activación:</p>
+          <div class="code">{{verificationCode}}</div>
+          <p class="expiration">Este código expira en 10 minutos.</p>
+        </div>
+
+        <p>Si no solicitaste este registro, por favor ignora este correo.</p>
+      </div>
+      
+      <div class="footer">
+        Este es un correo automático. Por favor, no respondas a este mensaje.<br/>
+        &copy; {{companyName}}
+      </div>
+    </div>
+  </body>
+</html>
