@@ -9,6 +9,8 @@ import {
 
 import { BaseTenantEntity } from 'src/common/entities/base-tenant.entity';
 import { Category } from './category.entity';
+import { RecipeIngredient } from './recipe-ingredient.entity';
+import { StockMovement } from './stock-movement.entity';
 
 @Entity('menu_items')
 
