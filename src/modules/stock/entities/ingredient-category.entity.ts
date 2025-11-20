@@ -15,8 +15,8 @@ import { Ingredient } from './ingredient.entity';
  */
 @Index(['companyId', 'name'], { unique: true})
 export class IngredientCategory {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+    @PrimaryGeneratedColumn()
+    id: number;
 
     /**
      * Multi-tenancy: Identificador de la empresa/tenant.

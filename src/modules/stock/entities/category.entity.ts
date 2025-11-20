@@ -6,7 +6,7 @@ import {
     Index
 } from 'typeorm';
 
-import { MenuItems } from './menu.item';
+import { MenuItems } from './menu-items.entity';
 
 @Entity('categories')
 /**
@@ -15,8 +15,8 @@ import { MenuItems } from './menu.item';
  */
 @Index(['companyId', 'name'], { unique: true})
 export class Category {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+    @PrimaryGeneratedColumn()
+    id: number;
 
     /**
      * Multi-tenancy: Identificador de la empresa/tenant.
@@ -24,7 +24,7 @@ export class Category {
      * por todas las empresas.
      */
     @Column({ type: 'uuid', nullable: true }) // <-- Esto rompe la regla estricta y lo hace Global
-    companyId: string | null;
+    companyId: number | null;
     
     /** Nombre de la categoría. */
     @Column({ length: 50, unique: false })

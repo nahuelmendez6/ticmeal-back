@@ -19,8 +19,8 @@ import { StockMovement } from './stock-movement.entity';
  */
 export class MenuItems extends BaseTenantEntity {
 
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+    @PrimaryGeneratedColumn()
+    id: number;
 
     @Column({ length: 50, unique: false})
     name: string;
@@ -30,7 +30,7 @@ export class MenuItems extends BaseTenantEntity {
     stock: number;
 
     /** Nombre del ícono asociado (opcional). */
-    @Column({ length: 100, nullable: true })
+    @Column({type: 'varchar', length: 100, nullable: true })
     iconName: string | null;
 
     /** Costo por unidad (precio de venta). */

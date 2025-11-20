@@ -5,14 +5,14 @@ import {
   ManyToOne,
   Unique,
 } from 'typeorm';
-import { MenuItems } from './menu.item';
+import { MenuItems } from './menu-items.entity';
 import { Ingredient } from './ingredient.entity';
 
 @Entity('recipe_ingredients')
 @Unique(['menuItem', 'ingredient']) // Restricción única de Django
 export class RecipeIngredient {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   /** Cantidad del ingrediente requerida para 1 unidad del ítem del menú. */
   @Column({ type: 'float' })

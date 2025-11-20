@@ -2,7 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 // Importación ASUMIDA de la entidad base multi-tenant
 import { BaseTenantEntity } from 'src/common/entities/base-tenant.entity'; 
 
-import { MenuItems } from './menu.item';
+import { MenuItems } from './menu-items.entity';
 import { Ingredient } from './ingredient.entity';
 import { MovementType, IngredientUnit } from '../enums/enums';
 
@@ -10,9 +10,8 @@ import { MovementType, IngredientUnit } from '../enums/enums';
 // Extiende BaseTenantEntity: Hereda id, companyId, y probablemente createdAt/updatedAt
 export class StockMovement extends BaseTenantEntity { // <-- AHORA EXTIENDE BaseTenantEntity
   
-  // Si BaseTenantEntity ya define el ID, elimina esta línea.
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
   
   /**
    * NOTA: companyId y timestamp (ahora createdAt) se HEREDAN de BaseTenantEntity.
@@ -41,7 +40,7 @@ export class StockMovement extends BaseTenantEntity { // <-- AHORA EXTIENDE Base
   movementType: MovementType;
 
   /** Motivo del movimiento ("Producción", "Venta", "Carga inicial"). */
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   reason: string | null;
 
   /** ID del ticket/orden relacionado (asumiendo que Ticket no está en este módulo). */

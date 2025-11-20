@@ -18,8 +18,8 @@ import { IngredientCategory } from './ingredient-category.entity';
 @Index(['companyId', 'name'], { unique: true })
 export class Ingredient extends BaseTenantEntity {
 
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   /** Nombre único. */
   @Column({ length: 50, unique: false }) // La unicidad se maneja con el índice compuesto

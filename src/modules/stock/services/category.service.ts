@@ -23,7 +23,7 @@ export class CategoryService {
    * Crea una nueva categoría personalizada para la empresa.
    * Sigue la estructura 'create' del template.
    */
-  async create(createDto: CreateCategoryDto, companyId: string): Promise<Category> {
+  async create(createDto: CreateCategoryDto, companyId: number): Promise<Category> {
     const newCategory = this.categoryRepo.create({
       ...createDto,
       companyId: companyId, // Asignar el companyId del tenant para hacerlo personalizado
@@ -35,11 +35,11 @@ export class CategoryService {
   /**
    * Obtiene todas las categorías disponibles para una empresa (Globales + Personalizadas).
    */
-  async findAllAvailableForTenant(companyId: string): Promise<Category[]> {
+  async findAllForTenant(tenantId: number): Promise<Category[]> {
     return this.categoryRepo.find({
       where: [
         { companyId: IsNull() },
-        { companyId: companyId },
+        { companyId: tenantId },
       ],
       order: {
         name: 'ASC',
@@ -50,7 +50,7 @@ export class CategoryService {
   /**
    * Busca una categoría por ID verificando que pertenezca al tenant O sea global.
    */
-  async findOneForTenant(id: string, companyId: string): Promise<Category> {
+  async findOneForTenant(id: number, companyId: number): Promise<Category> {
     const category = await this.categoryRepo.findOne({
         where: [
             { id: id, companyId: companyId },
@@ -68,7 +68,7 @@ export class CategoryService {
   /**
    * Verifica si una categoría (por ID) existe y está disponible para la empresa.
    */
-  async validateCategoryAvailability(categoryId: string, companyId: string): Promise<Category> {
+  async validateCategoryAvailability(categoryId: number, companyId: number): Promise<Category> {
       return this.findOneForTenant(categoryId, companyId);
   }
 
@@ -76,7 +76,7 @@ export class CategoryService {
    * Actualiza una categoría, asegurando que solo se modifiquen las PROPIAS de la empresa.
    * -> Usa TypeORM directo para el filtro estricto.
    */
-  async update(id: string, updateDto: UpdateCategoryDto, companyId: string): Promise<Category> {
+  async update(id: number, updateDto: UpdateCategoryDto, companyId: number): Promise<Category> {
       // 1. Intentamos encontrar la categoría PERSONALIZADA por ID y companyId (filtro estricto)
       const categoryToUpdate = await this.categoryRepo.findOne({
           where: { id, companyId }, 
@@ -105,7 +105,7 @@ export class CategoryService {
    * Elimina una categoría, asegurando que solo se puedan eliminar las PROPIAS de la empresa.
    * -> Usa TypeORM directo para el filtro estricto.
    */
-  async remove(id: string, companyId: string): Promise<boolean> {
+  async remove(id: number, companyId: number): Promise<boolean> {
       // 1. Intentamos eliminar la categoría PERSONALIZADA por ID y companyId (filtro estricto)
       const result = await this.categoryRepo.delete({ id, companyId });
 

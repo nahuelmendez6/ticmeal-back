@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { getDatabaseConfig } from './config/database.config';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
+import { StockModule } from './modules/stock/stock.module';
 import { CompaniesModule } from './modules/companies/companies.module';
 import { TenantContextService } from './common/context/tenant-context.service';
 import { TenantInterceptor } from './common/interceptors/tenant-interceptor';
@@ -23,6 +24,7 @@ import { TenantInterceptor } from './common/interceptors/tenant-interceptor';
     AuthModule,
     UsersModule,
     CompaniesModule,
+    StockModule,
   ],
   providers: [
     TenantContextService,
