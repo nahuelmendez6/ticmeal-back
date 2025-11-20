@@ -9,9 +9,11 @@ import { StockMovement } from './entities/stock-movement.entity';
 
 import { CategoryService } from './services/category.service';
 import { IngredientCategoryService } from './services/ingredient-category.service';
+import { IngredientService } from './services/ingredient.service';
 
 import { CategoryController } from './controllers/category.controller';
 import { IngredientCategoryController } from './controllers/ingredient-category.controller';
+import { IngredientController } from './controllers/ingredient.controller';
 
 @Module({
   imports: [
@@ -24,8 +26,8 @@ import { IngredientCategoryController } from './controllers/ingredient-category.
       StockMovement,
     ]),
   ],
-  providers: [CategoryService, IngredientCategoryService],
-  controllers: [CategoryController, IngredientCategoryController],
+  providers: [CategoryService, IngredientCategoryService, IngredientService],
+  controllers: [CategoryController, IngredientCategoryController, IngredientController],
   exports: [CategoryService],
 })
 export class StockModule {}

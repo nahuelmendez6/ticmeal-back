@@ -14,8 +14,8 @@ export class CreateIngredientDto {
 
   /** Tenant (heredado de BaseTenantEntity) */
   @IsOptional()
-  @IsUUID()
-  companyId?: string | null;
+  @IsNumber()
+  companyId?: number | null;
 
   /** Nombre */
   @IsString()
@@ -48,8 +48,8 @@ export class CreateIngredientDto {
 
   /** Categoría del ingrediente */
   @IsOptional()
-  @IsUUID()
-  categoryId?: string | null;
+  @IsNumber()
+  categoryId?: number | null;
 
   /** Stock mínimo recomendado */
   @IsOptional()
