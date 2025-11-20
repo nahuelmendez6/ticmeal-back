@@ -23,8 +23,8 @@ export class IngredientCategory {
      * Si el valor es NULL, esta es una categoría global y compartida
      * por todas las empresas.
      */
-    @Column({ type: 'uuid', nullable: true }) // <-- Esto rompe la regla estricta y lo hace Global
-    companyId: string | null;
+    @Column({ type: 'int', nullable: true }) // <-- Corregido para ser consistente con la lógica de tenant (number)
+    companyId: number | null;
     
     /** Nombre de la categoría. */
     @Column({ length: 50, unique: false })
