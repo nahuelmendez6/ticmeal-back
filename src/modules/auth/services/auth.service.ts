@@ -183,7 +183,7 @@ export class AuthService {
       companyId: user.company?.id,
     };
 
-    return { access_token: this.jwtService.sign(payload) };
+    return { access_token: this.jwtService.sign(payload), payload };
   }
 
   // ==============================
