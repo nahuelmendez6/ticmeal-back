@@ -30,7 +30,7 @@ export class User extends BaseTenantEntity {
   password: string;
 
   @Column({ nullable: true })
-  firsName: string;
+  firstName: string;
 
   @Column({ nullable: true })
   lastName: string;

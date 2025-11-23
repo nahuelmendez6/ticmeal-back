@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TenantAwareRepository } from 'src/common/repository/tenant-aware.repository';
-import { Repository, DeepPartial, Like } from 'typeorm';
+import { Repository, DeepPartial, Like, In } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { Company } from 'src/modules/companies/entities/company.entity';
 import { CreateUserDto } from '../dto/create.user.dto';
+import { Observation } from '../entities/observation.entity';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -14,6 +15,8 @@ export class UsersService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(Company)
     private readonly companyRepo: Repository<Company>,
+    @InjectRepository(Observation)
+    private readonly observationRepo: Repository<Observation>,
   ) {}
 
   async createUser(dto: CreateUserDto): Promise<User> {
@@ -22,10 +25,27 @@ export class UsersService {
       ? await bcrypt.hash(dto.password, salt)
       : null;
 
+    // Si es un 'diner' y no tiene username, generarlo.
+    if (dto.role === 'diner' && !dto.username) {
+      if (!dto.companyId || !dto.firstName) {
+        throw new BadRequestException(
+          'Se requiere companyId y firstName para registrar un diner.',
+        );
+      }
+      const company = await this.companyRepo.findOneBy({ id: dto.companyId });
+      if (!company) {
+        throw new NotFoundException(`Compañía con ID ${dto.companyId} no encontrada.`);
+      }
+      dto.username = await this.generateUniqueUsername(dto.firstName, dto.companyId, company.name);
+    }
+
+
+    const { observationsIds, ...userDto } = dto;
+
     const partial: DeepPartial<User> = {
-      ...dto,
+      ...userDto,
       password: hashedPassword,
-    } as any;
+    };
 
     const user = this.userRepo.create(partial);
 
@@ -34,6 +54,13 @@ export class UsersService {
         where: { id: dto.companyId },
       });
       if (companyRef) user.company = companyRef;
+    }
+
+    if (observationsIds && observationsIds.length > 0) {
+      const observations = await this.observationRepo.findBy({
+        id: In(observationsIds),
+      });
+      user.observations = observations;
     }
 
     return this.userRepo.save(user);

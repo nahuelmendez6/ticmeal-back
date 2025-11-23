@@ -207,13 +207,13 @@ export class AuthService {
     // 4. Generar username si aplica
     let username: string | undefined;
     if (role !== UserRole.DINER) {
-      if (!userDto.firsName)
+      if (!userDto.firstName)
         throw new BadRequestException(
           'El nombre es obligatorio para crear username',
         );
 
       username = await this.userService.generateUniqueUsername(
-        userDto.firsName,
+        userDto.firstName,
         company.id,
         company.name,
       );
@@ -228,15 +228,13 @@ export class AuthService {
     if (userDto.observationsIds && userDto.observationsIds.length > 0) {
       observations = await this.observationRepo.find({
         where: { 
-          id: In(userDto.observationsIds),
-          companyId: company.id, // Filtrar por tenant
+          id: In(userDto.observationsIds)
         },
       });
       
-      // Verificar que todas las observaciones solicitadas pertenezcan al tenant
       if (observations.length !== userDto.observationsIds.length) {
         throw new BadRequestException(
-          'Una o más observaciones no pertenecen a tu empresa o no existen'
+          'Una o más IDs de observaciones no existen'
         );
       }
     }
@@ -302,5 +300,3 @@ const getVerificationCodeExpiration = (): Date => {
   expires.setMinutes(expires.getMinutes() + 10);
   return expires;
 }
-
-

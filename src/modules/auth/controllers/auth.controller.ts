@@ -1,16 +1,16 @@
 import { Body, 
   Controller, 
   Post, 
-  UseGuards,
-  Req,
-  ForbiddenException} from '@nestjs/common';
+  UseGuards } from '@nestjs/common';
 import { AuthService } from '../services/auth.service';
 import { CreateUserDto } from 'src/modules/users/dto/create.user.dto';
 import { CreateCompanyDto } from 'src/modules/companies/dto/create.company.dto';
 import { LoginDto } from '../dto/login.dto';
-import { Public } from '../decorators/roles.decorators';
+import { Public, Roles } from '../decorators/roles.decorators';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { RolesGuard } from '../guards/roles.guard';
 import { User } from 'src/modules/users/entities/user.entity';
+import { CurrentUser } from '../decorators/current-user.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -42,36 +42,33 @@ export class AuthController {
     // ===================================================
     //  Crear usuarios internos (solo admin de empresa)
     // ===================================================
-    @UseGuards(JwtAuthGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('company_admin', 'super_admin')
     @Post('register-diner')
     async registerDiner(
-      @Req() req: Request & { user: User}, 
+      @CurrentUser() currentUser: User,
       @Body() dto: CreateUserDto
     ) {
-      const currentUser = req.user as User;
-      if (!currentUser) throw new ForbiddenException('Usuario no autenticado.')
       return this.authService.registerDiner(dto, currentUser);
     }
 
-    @UseGuards(JwtAuthGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('company_admin', 'super_admin')
     @Post('register-kitchen-admin')
     async registerKitchenAdmin(
-      @Req() req: Request & { user: User}, 
+      @CurrentUser() currentUser: User,
       @Body() dto: CreateUserDto
     ) {
-      const currentUser = req.user as User;
-      if (!currentUser) throw new ForbiddenException('Usuario no autenticado.')
       return this.authService.registerKitchenAdmin(dto, currentUser);
     }
 
-    @UseGuards(JwtAuthGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('super_admin') // Solo un super_admin puede crear otros company_admin
     @Post('register-company-admin')
     async registerCompanyAdmin(
-      @Req() req: Request & { user: User}, 
+      @CurrentUser() currentUser: User,
       @Body() dto: CreateUserDto
     ) {
-      const currentUser = req.user as User;
-      if (!currentUser) throw new ForbiddenException('Usuario no autenticado');
       return this.authService.registerCompanyAdmin(dto, currentUser);
     }
 
