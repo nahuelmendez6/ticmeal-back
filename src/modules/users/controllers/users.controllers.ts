@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Patch,
   Delete,
   UseGuards,
   Req,
@@ -12,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { UsersService } from '../services/user.service';
 import { CreateUserDto } from '../dto/create.user.dto';
+import { UpdateUserDto } from '../dto/update.user.dto';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { Roles } from 'src/modules/auth/decorators/roles.decorators';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
@@ -88,6 +90,26 @@ export class UsersController {
     }
     
     return found;
+  }
+
+  @Roles('company_admin', 'super_admin')
+  @Patch(':id')
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserDto,
+    @Tenant() tenantId: number | undefined,
+    @Req() req: Request,
+  ) {
+    const userReq: any = (req as any).user;
+
+    // Los super_admin pueden editar cualquier usuario, los company_admin solo los de su tenant.
+    const targetTenantId = userReq.role === 'super_admin' ? undefined : tenantId;
+
+    if (userReq.role !== 'super_admin' && !targetTenantId) {
+      throw new ForbiddenException('No se pudo determinar el tenant');
+    }
+
+    return this.usersService.updateUser(Number(id), dto, targetTenantId);
   }
 
   @Roles('company_admin', 'super_admin')

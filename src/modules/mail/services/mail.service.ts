@@ -21,7 +21,7 @@ export class MailService {
             subject: `Bienvenido a ${company.name}`,
             template: 'user-credentials', // nombre del archivo sin .hbs
             context: {
-                firstName: user.firsName ?? 'usuario',
+                firstName: user.firstName ?? 'usuario',
                 username: user.username ?? user.email,
                 password: plainPassword,
                 pin: pin,
@@ -44,7 +44,7 @@ export class MailService {
                 subject: `Código de verificación para ${company.name}`,
                 template: 'email-verification', // nombre del archivo sin .hbs
                 context: {
-                    firstName: user.firsName ?? 'usuario',
+                    firstName: user.firstName ?? 'usuario',
                     verificationCode: verificationCode,
                     companyName: company.name,
                 },

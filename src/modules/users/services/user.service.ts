@@ -5,6 +5,7 @@ import { Repository, DeepPartial, Like, In } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { Company } from 'src/modules/companies/entities/company.entity';
 import { CreateUserDto } from '../dto/create.user.dto';
+import { UpdateUserDto } from '../dto/update.user.dto';
 import { Observation } from '../entities/observation.entity';
 import * as bcrypt from 'bcrypt';
 
@@ -23,7 +24,7 @@ export class UsersService {
     const salt = await bcrypt.genSalt();
     const hashedPassword = dto.password
       ? await bcrypt.hash(dto.password, salt)
-      : null;
+      : undefined;
 
     // Si es un 'diner' y no tiene username, generarlo.
     if (dto.role === 'diner' && !dto.username) {
@@ -69,7 +70,48 @@ export class UsersService {
   async findAllForTenant(companyId: number): Promise<User[]> {
     return TenantAwareRepository.createTenantQueryBuilder(this.userRepo, companyId, 'user')
       .leftJoinAndSelect('user.company', 'company')
+      .leftJoinAndSelect('user.observations', 'observations')
       .getMany();
+  }
+
+  async updateUser(
+    id: number,
+    dto: UpdateUserDto,
+    companyId?: number,
+  ): Promise<User> {
+    const user = await this.userRepo.findOne({
+      where: { id, ...(companyId && { company: { id: companyId } }) },
+      relations: ['observations'],
+    });
+
+    if (!user) {
+      throw new NotFoundException(
+        `Usuario con ID ${id} no encontrado o no pertenece a tu compañía.`,
+      );
+    }
+
+    // Hashear contraseña si se provee una nueva
+    if (dto.password) {
+      const salt = await bcrypt.genSalt();
+      dto.password = await bcrypt.hash(dto.password, salt);
+    }
+
+    const { observationsIds, ...userDto } = dto;
+
+    // Actualizar observaciones si se proveen los IDs
+    if (observationsIds !== undefined) {
+      if (observationsIds.length > 0) {
+        const observations = await this.observationRepo.findBy({
+          id: In(observationsIds),
+        });
+        user.observations = observations;
+      } else {
+        user.observations = []; // Vaciar observaciones si se envía un array vacío
+      }
+    }
+
+    const updatedUser = this.userRepo.merge(user, userDto);
+    return this.userRepo.save(updatedUser);
   }
 
   /**
