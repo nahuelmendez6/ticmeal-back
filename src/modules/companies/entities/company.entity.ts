@@ -10,10 +10,10 @@ export class Company {
     @Column({ unique: true, default: null })
     name: string;   // public name
 
-    @Column({ unique: true })
+    @Column({ unique: true,nullable: true,default: null})
     taxId: string; // CUIT/CUIL
 
-    @Column()
+    @Column({ nullable: true , default: null})
     industryType: string
 
     @Column({ nullable:true })
