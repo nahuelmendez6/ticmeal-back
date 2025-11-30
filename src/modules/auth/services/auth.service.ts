@@ -140,6 +140,10 @@ export class AuthService {
 
       const savedAdmin = await userRepoTx.save(adminUser);
 
+      // enviar credenciales al admin
+      await this.mailService.sendUserCredentials(savedAdmin, company, undefined);
+
+
       // aca va envio de email
       if (adminDto.email) {
         await this.mailService.sendVerificationCode(
