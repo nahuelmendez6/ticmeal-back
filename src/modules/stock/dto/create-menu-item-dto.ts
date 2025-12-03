@@ -61,6 +61,11 @@ export class CreateMenuItemDto {
   minStock?: number;
 
   @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => RecipeIngredientDto)
