@@ -4,7 +4,13 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository, DataSource } from 'typeorm';
+import {
+  In,
+  Repository,
+  DataSource,
+  LessThan,
+  MoreThan,
+} from 'typeorm';
 import { Shift } from '../entities/shift.entity';
 import { MenuItems } from 'src/modules/stock/entities/menu-items.entity';
 import { CreateShiftDto } from '../dto/create-shift.dto';
@@ -71,6 +77,27 @@ export class ShiftService {
         order: { startTime: 'ASC' },
       }
     )
+  }
+
+  /** Obtiene los turnos activos en su horario */
+  async findActiveShiftByHourForTenant(
+    companyId: number,
+    hour: string,
+  ): Promise<Shift[]> {
+    const shifts = await this.shiftRepo.find({
+      where: [
+        // Turnos que no cruzan la medianoche
+        {
+          companyId,
+          menuActive: true,
+          startTime: LessThan(hour),
+          endTime: MoreThan(hour),
+        },
+      ],
+      relations: ['menuItems'],
+    });
+
+    return shifts;
   }
 
 

@@ -73,6 +73,21 @@ export class ShiftController {
     return this.shiftService.findActivesShiftForTenant(tenantId);
   }
 
+  @Get('active-by-hour')
+  @ApiOperation({
+    summary: 'Obtener el turno activo según la hora actual del servidor',
+  })
+  @Roles('company_admin', 'kitchen_admin', 'diner', 'super_admin')
+  async findActiveByCurrentHour(@Tenant() tenantId: number) {
+    if (!tenantId) {
+      throw new ForbiddenException('No se pudo determinar la empresa.');
+    }
+    // Obtiene la hora actual del servidor
+    const now = new Date();
+    const hour = now.toTimeString().split(' ')[0];
+
+    return this.shiftService.findActiveShiftByHourForTenant(tenantId, hour);
+  }
 
   @Get(':id')
   @ApiOperation({ summary: 'Obtener un turno por ID' })
