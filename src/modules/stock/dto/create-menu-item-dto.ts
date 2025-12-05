@@ -64,6 +64,10 @@ export class CreateMenuItemDto {
   @IsBoolean()
   isActive?: boolean;
 
+  @IsOptional()
+  @IsNumber()
+  maxOrder?: number;
+
 
   @IsOptional()
   @IsArray()

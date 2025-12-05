@@ -52,6 +52,10 @@ export class MenuItems extends BaseTenantEntity {
     @Column({ type: 'boolean', default: true })
     isActive: boolean;
 
+    /** cantudad maxima de item permitido en una orden */
+    @Column({ type: 'int', nullable: true})
+    maxOrder: number | null;
+
     // Relaciones
     @OneToMany(() => RecipeIngredient, (recipeIngredient) => recipeIngredient.menuItem)
     recipeIngredients: RecipeIngredient[];
