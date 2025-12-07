@@ -6,6 +6,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { StockModule } from './modules/stock/stock.module';
 import { ShiftModule } from './modules/shift/shift.module';
+import { TicketModule } from './modules/tickets/ticket.module';
 import { CompaniesModule } from './modules/companies/companies.module';
 import { TenantContextService } from './common/context/tenant-context.service';
 import { TenantInterceptor } from './common/interceptors/tenant-interceptor';
@@ -27,6 +28,7 @@ import { TenantInterceptor } from './common/interceptors/tenant-interceptor';
     CompaniesModule,
     StockModule,
     ShiftModule,
+    TicketModule
   ],
   providers: [
     TenantContextService,

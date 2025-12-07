@@ -225,4 +225,8 @@ export class UsersService {
 
     return `${firstName}${suffix}@${companyName}`.toLowerCase();
   }
+
+  async validatePin(pin: string, hash: string): Promise<boolean> {
+    return bcrypt.compare(pin, hash);
+  }
 }

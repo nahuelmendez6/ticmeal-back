@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  OneToMany,
   ManyToMany,
   CreateDateColumn,
   UpdateDateColumn,
@@ -11,6 +12,7 @@ import {
 import { Company } from 'src/modules/companies/entities/company.entity';
 import { Observation } from './observation.entity';
 import { BaseTenantEntity } from 'src/common/entities/base-tenant.entity';
+import { Ticket } from 'src/modules/tickets/entities/ticket.entity';
 
 @Entity({ name: 'users' })
 export class User extends BaseTenantEntity {
@@ -63,6 +65,9 @@ export class User extends BaseTenantEntity {
     inverseJoinColumn: { name: 'observation_id', referencedColumnName: 'id' },
   })
   observations: Observation[];
+
+  @OneToMany(() => Ticket, (ticket) => ticket.user)
+  tickets: Ticket[];
 
   @Column({ default: true })
   isActive: boolean;
