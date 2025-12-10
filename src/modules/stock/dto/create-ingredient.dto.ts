@@ -5,6 +5,7 @@ import {
   Length,
   IsNumber,
   IsEnum,
+  IsBoolean,
   IsPositive,
   IsNumberString,
 } from 'class-validator';
@@ -55,4 +56,8 @@ export class CreateIngredientDto {
   @IsOptional()
   @IsNumber()
   minStock?: number | null;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }

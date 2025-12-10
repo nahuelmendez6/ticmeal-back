@@ -64,4 +64,8 @@ export class Ingredient extends BaseTenantEntity {
   @OneToMany(() => StockMovement, (movement) => movement.ingredient)
   stockMovements: StockMovement[];
 
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
+
+
 }
