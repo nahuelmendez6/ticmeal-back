@@ -43,8 +43,8 @@ export class StockMovement extends BaseTenantEntity { // <-- AHORA EXTIENDE Base
   @Column({ type: 'varchar', length: 255, nullable: true })
   reason: string | null;
 
-  /** ID del ticket/orden relacionado (asumiendo que Ticket no está en este módulo). */
-  @Column({ type: 'uuid', nullable: true })
+  /** ID del ticket/orden relacionado. Se guarda como string para flexibilidad. */
+  @Column({ type: 'varchar', nullable: true })
   relatedTicketId: string | null;
 
   /** ID del usuario que realizó la acción (asumiendo AUTH_USER_MODEL). */

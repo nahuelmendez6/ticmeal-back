@@ -27,6 +27,7 @@ export class TicketController {
   constructor(private readonly ticketService: TicketService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard) 
   @ApiOperation({ summary: 'Crear un nuevo ticket' })
   create(@Body() createTicketDto: CreateTicketDto, @Tenant() tenantId: number) {
     return this.ticketService.create(createTicketDto, tenantId);

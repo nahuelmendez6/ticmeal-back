@@ -9,6 +9,7 @@ import { MenuItems } from '../stock/entities/menu-items.entity';
 import { Observation } from '../users/entities/observation.entity';
 import { UsersModule } from '../users/users.module';
 import { ShiftModule } from '../shift/shift.module';
+import { StockModule } from '../stock/stock.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ShiftModule } from '../shift/shift.module';
     ]),
     UsersModule,
     ShiftModule,
+    StockModule,
   ],
   controllers: [TicketController],
   providers: [TicketService], // TicketService ahora puede inyectar UsersService y ShiftService

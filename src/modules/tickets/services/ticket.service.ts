@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Inject,
   NotFoundException,
   UnauthorizedException,
   BadRequestException,
@@ -16,6 +17,9 @@ import { Shift } from '../../shift/entities/shift.entity';
 import { ShiftService } from 'src/modules/shift/services/shift.service';
 import { MenuItems } from '../../stock/entities/menu-items.entity';
 import { Observation } from '../../users/entities/observation.entity';
+import { StockMovement } from 'src/modules/stock/entities/stock-movement.entity';
+import { MovementType } from 'src/modules/stock/enums/enums';
+import { Ingredient } from 'src/modules/stock/entities/ingredient.entity';
 
 @Injectable()
 export class TicketService {
@@ -28,6 +32,10 @@ export class TicketService {
     private readonly observationRepo: Repository<Observation>,
     @InjectRepository(Shift)
     private readonly shiftRepository: Repository<Shift>,
+    @InjectRepository(StockMovement)
+    private readonly stockMovementRepository: Repository<StockMovement>,
+    @InjectRepository(Ingredient)
+    private readonly ingredientRepository: Repository<Ingredient>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly usersService: UsersService,
@@ -69,7 +77,10 @@ export class TicketService {
     }
 
     // 3. Buscar items y observaciones
-    const items = await this.menuItemRepository.findBy({ id: In(createTicketDto.menuItemIds) });
+    const items = await this.menuItemRepository.find({
+      where: { id: In(createTicketDto.menuItemIds) },
+      relations: ['recipeIngredients', 'recipeIngredients.ingredient'],
+    });
     if (items.length !== createTicketDto.menuItemIds.length) {
       throw new NotFoundException('Uno o más items no fueron encontrados.');
     }
@@ -87,7 +98,49 @@ export class TicketService {
       company: { id: tenantId },
     });
 
-    return this.ticketRepository.save(newTicket);
+const savedTicket = await this.ticketRepository.save(newTicket);
+
+    // 5. Actualizar stock y registrar movimientos
+    for (const item of items) {
+      if (item.recipeIngredients && item.recipeIngredients.length > 0) {
+        // Descontar stock de ingredientes de la receta
+        for (const recipeIngredient of item.recipeIngredients) {
+          const ingredient = recipeIngredient.ingredient;
+          ingredient.quantityInStock -= recipeIngredient.quantity;
+          await this.ingredientRepository.save(ingredient);
+
+          const stockMovement = this.stockMovementRepository.create({
+            ingredient: ingredient,
+            quantity: recipeIngredient.quantity,
+            unit: ingredient.unit,
+            movementType: MovementType.OUT,
+            reason: 'ticket',
+            relatedTicketId: savedTicket.id.toString(), // Asumiendo que el ID del ticket es numérico
+            performedById: user.id.toString(),
+            company: { id: tenantId },
+          });
+          await this.stockMovementRepository.save(stockMovement);
+        }
+      } else {
+        // Descontar stock del menu item
+        item.stock -= 1; // Asumimos que se descuenta 1 por cada item en el ticket
+        await this.menuItemRepository.save(item);
+
+        const stockMovement = this.stockMovementRepository.create({
+          menuItem: item,
+          quantity: 1,
+          unit: 'unit' as any, // Los MenuItems no tienen una unidad definida, se asume 'unit'
+          movementType: MovementType.OUT,
+          reason: 'ticket',
+          relatedTicketId: savedTicket.id.toString(),
+          performedById: user.id.toString(),
+          company: { id: tenantId },
+        });
+        await this.stockMovementRepository.save(stockMovement);
+      }
+    }
+
+    return savedTicket;
   }
 
 

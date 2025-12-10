@@ -44,6 +44,13 @@ import { RecipeIngredientController } from './controllers/recipe-ingredient.cont
     MenuItemController,
     RecipeIngredientController,
   ],
-  exports: [CategoryService],
+  exports: [
+    TypeOrmModule,
+    CategoryService,
+    IngredientCategoryService,
+    IngredientService,
+    MenuItemService,
+    RecipeIngredientService,
+  ],
 })
 export class StockModule {}
