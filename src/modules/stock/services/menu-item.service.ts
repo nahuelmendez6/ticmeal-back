@@ -12,6 +12,8 @@ import { UpdateMenuItemDto } from '../dto/update-menu-item-dto';
 import { TenantAwareRepository } from 'src/common/repository/tenant-aware.repository';
 import { CategoryService } from './category.service';
 import { IngredientService } from './ingredient.service';
+import { StockMovement } from '../entities/stock-movement.entity';
+import { MovementType } from '../enums/enums';
 import { RecipeIngredient } from '../entities/recipe-ingredient.entity';
 
 
@@ -71,14 +73,25 @@ export class MenuItemService {
       const savedMenuItem = await queryRunner.manager.save(newMenuItem);
 
       if (recipeDto && recipeDto.length > 0) {
-        const recipe = recipeDto.map((ri) =>
-          this.recipeIngredientRepo.create({
+        const recipe = recipeDto.map(ri =>
+          queryRunner.manager.create(RecipeIngredient, {
             menuItem: savedMenuItem,
             ingredient: { id: ri.ingredientId },
             quantity: ri.quantity,
           }),
         );
         await queryRunner.manager.save(recipe);
+      } else if (savedMenuItem.stock > 0) {
+        // Es un ítem sin receta, registrar movimiento de stock inicial
+        const stockMovement = queryRunner.manager.create(StockMovement, {
+          menuItem: savedMenuItem,
+          quantity: savedMenuItem.stock,
+          movementType: MovementType.IN,
+          reason: 'Carga inicial',
+          unit: 'unit' as any,
+          companyId,
+        });
+        await queryRunner.manager.save(stockMovement);
       }
 
       await queryRunner.commitTransaction();
@@ -136,6 +149,8 @@ export class MenuItemService {
     const menuItemToUpdate = await this.findOneForTenant(id, companyId);
     const { recipeIngredients: recipeDto, categoryId, ...menuItemData } = updateDto;
 
+    const originalStock = menuItemToUpdate.stock;
+
     // Validar nueva categoría si cambia
     if (categoryId && categoryId !== menuItemToUpdate.category?.id) {
       await this.categoryService.validateCategoryAvailability(categoryId, companyId);
@@ -146,16 +161,38 @@ export class MenuItemService {
     await queryRunner.startTransaction();
 
     try {
+      const newStock = menuItemData.stock;
+      const stockChanged = newStock !== undefined && newStock !== originalStock;
+      const hasRecipeAfterUpdate = recipeDto != null ? recipeDto.length > 0 : (menuItemToUpdate.recipeIngredients && menuItemToUpdate.recipeIngredients.length > 0);
+
+      if (stockChanged && !hasRecipeAfterUpdate) {
+        const quantityDiff = newStock - originalStock;
+        if (quantityDiff !== 0) {
+          const stockMovement = queryRunner.manager.create(StockMovement, {
+            menuItem: menuItemToUpdate,
+            quantity: Math.abs(quantityDiff),
+            movementType: quantityDiff > 0 ? MovementType.IN : MovementType.OUT,
+            reason: 'Ajuste de stock',
+            unit: 'unit' as any,
+            companyId,
+          });
+          await queryRunner.manager.save(stockMovement);
+        }
+      }
+
       // Actualizar datos del MenuItem
       // Se actualizan las propiedades del DTO en la entidad cargada.
       queryRunner.manager.merge(MenuItems, menuItemToUpdate, menuItemData);
 
       // Si se proporciona un nuevo categoryId, se actualiza la relación.
       // Se asigna un objeto parcial a la relación 'category'.
-      menuItemToUpdate.category = categoryId ? ({ id: categoryId } as Category) : null;
+      if (updateDto.hasOwnProperty('categoryId')) {
+        menuItemToUpdate.category = categoryId
+          ? ({ id: categoryId } as Category)
+          : null;
+      }
 
       await queryRunner.manager.save(menuItemToUpdate);
-
       // Si se proporciona una nueva receta, reemplazar la anterior
       if (recipeDto) {
         // Eliminar receta anterior
