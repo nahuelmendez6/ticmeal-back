@@ -8,8 +8,6 @@ import {
   Delete,
   ParseIntPipe,
   UseGuards,
-  Req,
-  ForbiddenException,
 } from '@nestjs/common';
 import { TicketService } from '../services/ticket.service';
 import { CreateTicketDto } from '../dto/create-ticket.dto';
@@ -18,7 +16,6 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
 import { Tenant } from 'src/common/decorators/tenant-decorator';
-import { User } from 'src/modules/users/entities/user.entity';
 
 @ApiBearerAuth()
 @ApiTags('Tickets')
