@@ -8,6 +8,7 @@ import {
   IsBoolean,
   IsPositive,
   IsNumberString,
+  IsObject,
 } from 'class-validator';
 import { IngredientUnit, IngredientCostType } from '../enums/enums';
 
@@ -51,6 +52,14 @@ export class CreateIngredientDto {
   @IsOptional()
   @IsNumber()
   categoryId?: number | null;
+
+  /**
+   * Propiedad enviada por el frontend que no se utiliza en el backend.
+   * Se permite para evitar errores de validación, pero se ignora en la lógica del servicio.
+   */
+  @IsOptional()
+  @IsObject()
+  category?: any;
 
   /** Stock mínimo recomendado */
   @IsOptional()

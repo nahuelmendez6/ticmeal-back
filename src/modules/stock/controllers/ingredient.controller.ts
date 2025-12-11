@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   ParseIntPipe,
+  Req,
   HttpCode,
   HttpStatus,
   ForbiddenException,
@@ -36,11 +37,13 @@ export class IngredientController {
   async create(
     @Body() createIngredientDto: CreateIngredientDto,
     @Tenant() tenantId: number,
+    @Req() req: any,
   ): Promise<Ingredient> {
     if (!tenantId) {
       throw new ForbiddenException('No se pudo determinar el tenant.');
     }
-    return this.ingredientService.create(createIngredientDto, tenantId);
+    const { id: userId } = req.user;
+    return this.ingredientService.create(createIngredientDto, tenantId, userId);
   }
 
   /**
@@ -82,11 +85,13 @@ export class IngredientController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateIngredientDto: UpdateIngredientDto,
     @Tenant() tenantId: number,
+    @Req() req: any,
   ): Promise<Ingredient> {
     if (!tenantId) {
       throw new ForbiddenException('No se pudo determinar el tenant.');
     }
-    return this.ingredientService.update(id, updateIngredientDto, tenantId);
+    const { id: userId } = req.user;
+    return this.ingredientService.update(id, updateIngredientDto, tenantId, userId);
   }
 
   /**

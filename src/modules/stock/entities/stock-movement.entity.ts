@@ -18,11 +18,13 @@ export class StockMovement extends BaseTenantEntity { // <-- AHORA EXTIENDE Base
   createdAt: Date;
   // Relaciones (Solo uno de los dos debe estar presente)
   @ManyToOne(() => MenuItems, (item) => item.stockMovements, { nullable: true })
+  @JoinColumn({ name: 'menuItemId' })
   menuItem: MenuItems | null;
 
   @ManyToOne(() => Ingredient, (ingredient) => ingredient.stockMovements, {
     nullable: true,
   })
+  @JoinColumn({ name: 'ingredientId' })
   ingredient: Ingredient | null;
 
   /** Cantidad involucrada. */
