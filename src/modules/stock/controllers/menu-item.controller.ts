@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   ParseIntPipe,
+  Req,
   HttpCode,
   HttpStatus,
   ForbiddenException,
@@ -36,11 +37,13 @@ export class MenuItemController {
   async create(
     @Body() createMenuItemDto: CreateMenuItemDto,
     @Tenant() tenantId: number,
+    @Req() req: any,
   ): Promise<MenuItems> {
     if (!tenantId) {
       throw new ForbiddenException('No se pudo determinar el tenant.');
     }
-    return this.menuItemService.create(createMenuItemDto, tenantId);
+    const { id: userId } = req.user;
+    return this.menuItemService.create(createMenuItemDto, tenantId, userId);
   }
 
   /**
@@ -82,11 +85,13 @@ export class MenuItemController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateMenuItemDto: UpdateMenuItemDto,
     @Tenant() tenantId: number,
+    @Req() req: any,
   ): Promise<MenuItems> {
     if (!tenantId) {
       throw new ForbiddenException('No se pudo determinar el tenant.');
     }
-    return this.menuItemService.update(id, updateMenuItemDto, tenantId);
+    const { id: userId } = req.user;
+    return this.menuItemService.update(id, updateMenuItemDto, tenantId, userId);
   }
 
   /**

@@ -37,6 +37,7 @@ export class MenuItemService {
   async create(
     createDto: CreateMenuItemDto,
     companyId: number,
+    userId: number,
   ): Promise<MenuItems> {
     const { recipeIngredients: recipeDto, categoryId, ...menuItemData } = createDto;
 
@@ -90,6 +91,7 @@ export class MenuItemService {
           reason: 'Carga inicial',
           unit: 'unit' as any,
           companyId,
+          performedBy: { id: userId },
         });
         await queryRunner.manager.save(stockMovement);
       }
@@ -144,6 +146,7 @@ export class MenuItemService {
     id: number,
     updateDto: UpdateMenuItemDto,
     companyId: number,
+    userId: number,
   ): Promise<MenuItems> {
     // findOneForTenant valida la pertenencia y carga las relaciones existentes
     const menuItemToUpdate = await this.findOneForTenant(id, companyId);
@@ -175,6 +178,7 @@ export class MenuItemService {
             reason: 'Ajuste de stock',
             unit: 'unit' as any,
             companyId,
+            performedBy: { id: userId },
           });
           await queryRunner.manager.save(stockMovement);
         }
