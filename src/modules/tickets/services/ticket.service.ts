@@ -106,8 +106,12 @@ const savedTicket = await this.ticketRepository.save(newTicket);
         // Descontar stock de ingredientes de la receta
         for (const recipeIngredient of item.recipeIngredients) {
           const ingredient = recipeIngredient.ingredient;
-          ingredient.quantityInStock -= recipeIngredient.quantity;
-          await this.ingredientRepository.save(ingredient);
+          // Usamos decrement para una operación atómica y más segura.
+          await this.ingredientRepository.decrement(
+            { id: ingredient.id },
+            'quantityInStock',
+            recipeIngredient.quantity
+          );
 
           const stockMovement = this.stockMovementRepository.create({
             ingredient: ingredient,
@@ -115,16 +119,16 @@ const savedTicket = await this.ticketRepository.save(newTicket);
             unit: ingredient.unit,
             movementType: MovementType.OUT,
             reason: 'ticket',
-            relatedTicketId: savedTicket.id.toString(), // Asumiendo que el ID del ticket es numérico
-            performedById: user.id.toString(),
+            relatedTicketId: savedTicket.id.toString(),
+            performedBy: user,
             company: { id: tenantId },
           });
           await this.stockMovementRepository.save(stockMovement);
         }
-      } else {
-        // Descontar stock del menu item
-        item.stock -= 1; // Asumimos que se descuenta 1 por cada item en el ticket
-        await this.menuItemRepository.save(item);
+      } else if (item.minStock !== null) {
+        // Descontar stock del menu item si no tiene receta y se traquea su stock (minStock no es nulo)
+        // Usamos decrement para una operación atómica.
+        await this.menuItemRepository.decrement({ id: item.id }, 'stock', 1);
 
         const stockMovement = this.stockMovementRepository.create({
           menuItem: item,
@@ -133,7 +137,7 @@ const savedTicket = await this.ticketRepository.save(newTicket);
           movementType: MovementType.OUT,
           reason: 'ticket',
           relatedTicketId: savedTicket.id.toString(),
-          performedById: user.id.toString(),
+          performedBy: user,
           company: { id: tenantId },
         });
         await this.stockMovementRepository.save(stockMovement);

@@ -23,7 +23,7 @@ export class Category {
      * Si el valor es NULL, esta es una categoría global y compartida
      * por todas las empresas.
      */
-    @Column({ type: 'uuid', nullable: true }) // <-- Esto rompe la regla estricta y lo hace Global
+    @Column({ type: 'int', nullable: true })
     companyId: number | null;
     
     /** Nombre de la categoría. */

@@ -1,10 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
 // Importación ASUMIDA de la entidad base multi-tenant
 import { BaseTenantEntity } from 'src/common/entities/base-tenant.entity'; 
 
 import { MenuItems } from './menu-items.entity';
 import { Ingredient } from './ingredient.entity';
 import { MovementType, IngredientUnit } from '../enums/enums';
+import { User } from 'src/modules/users/entities/user.entity';
 
 @Entity('stock_movements')
 // Extiende BaseTenantEntity: Hereda id, companyId, y probablemente createdAt/updatedAt
@@ -13,11 +14,8 @@ export class StockMovement extends BaseTenantEntity { // <-- AHORA EXTIENDE Base
   @PrimaryGeneratedColumn()
   id: number;
   
-  /**
-   * NOTA: companyId y timestamp (ahora createdAt) se HEREDAN de BaseTenantEntity.
-   * Por lo tanto, se eliminan las definiciones duplicadas aquí.
-   */
-
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
   // Relaciones (Solo uno de los dos debe estar presente)
   @ManyToOne(() => MenuItems, (item) => item.stockMovements, { nullable: true })
   menuItem: MenuItems | null;
@@ -47,7 +45,9 @@ export class StockMovement extends BaseTenantEntity { // <-- AHORA EXTIENDE Base
   @Column({ type: 'varchar', nullable: true })
   relatedTicketId: string | null;
 
-  /** ID del usuario que realizó la acción (asumiendo AUTH_USER_MODEL). */
-  @Column({ type: 'uuid', nullable: true })
-  performedById: string | null;
+  // Relación con el usuario que realizó el movimiento.
+  // TypeORM creará la columna 'performedById' automáticamente.
+  @ManyToOne(() => User, { nullable: true, eager: false })
+  @JoinColumn({ name: 'performedById' })
+  performedBy: User | null;
 }
