@@ -227,6 +227,17 @@ export class AuthService {
     const pin = this.generatePin();
     const pinHash = await this.hashPin(pin);
 
+    let password = userDto.password;
+    if (role === UserRole.KITCHEN_ADMIN) {
+      password = this.generatePassword();
+    }
+
+    let passwordHash: string | undefined;
+    if (password) {
+      const salt = await bcrypt.genSalt();
+      passwordHash = await bcrypt.hash(password, salt);
+    }
+
     // 6. Buscar observaciones opcionales (solo del tenant del usuario)
     let observations: Observation[] = [];
     if (userDto.observationsIds && userDto.observationsIds.length > 0) {
@@ -248,6 +259,7 @@ export class AuthService {
     const newUser = this.userRepo.create({
       ...userDto,
       username,
+      password: passwordHash,
       role,
       company,
       pinHash,
@@ -257,7 +269,7 @@ export class AuthService {
     await this.userRepo.save(newUser);
 
     // Enviar credenciales
-    await this.mailService.sendUserCredentials(newUser, company, undefined, pin);
+    await this.mailService.sendUserCredentials(newUser, company, password, pin);
 
     return newUser;
   }
@@ -289,6 +301,10 @@ export class AuthService {
   private async hashPin(pin: string): Promise<string> {
     const saltRounds = 10;
     return bcrypt.hash(pin, saltRounds);
+  }
+
+  private generatePassword(): string {
+    return Math.random().toString(36).slice(-8);
   }
 }
 
