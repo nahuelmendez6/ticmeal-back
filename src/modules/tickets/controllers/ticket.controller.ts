@@ -17,6 +17,7 @@ import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
 import { Tenant } from 'src/common/decorators/tenant-decorator';
 import { Public } from 'src/common/decorators/public.decorator';
+// import { Roles } from 'src/common/decorators/roles.decorator';
 
 @ApiBearerAuth()
 @ApiTags('Tickets')
@@ -74,6 +75,7 @@ export class TicketController {
 
   @Patch(':id/use')
   @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles('kitchen_admin', 'company_admin')
   @ApiOperation({ summary: 'Marcar ticket como usado y descontar stock' })
   markAsUsed(@Param('id', ParseIntPipe) id: number, @Tenant() tenantId: number) {
     return this.ticketService.markAsUsed(id, tenantId);
