@@ -6,9 +6,9 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, Repository, Not, LessThan, Between } from 'typeorm';
 
-import { Ticket } from '../entities/ticket.entity';
+import { Ticket, TicketStatus } from '../entities/ticket.entity';
 import { CreateTicketDto } from '../dto/create-ticket.dto';
 import { UpdateTicketDto } from '../dto/update-ticket.dto';
 import { User } from '../../users/entities/user.entity';
@@ -76,14 +76,40 @@ export class TicketService {
       );
     }
 
+    // 1.1 Validar que el usuario no tenga un ticket activo (no cancelado) en el turno actual
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const existingTicket = await this.ticketRepository.findOne({
+      where: {
+        user: { id: user.id },
+        shift: { id: activeShift[0].id },
+        status: Not(TicketStatus.CANCELLED),
+        company: { id: tenantId },
+        date: Between(todayStart, todayEnd),
+      },
+    });
+
+    if (existingTicket) {
+      throw new BadRequestException(
+        'El usuario ya tiene un ticket generado para este turno en el día de hoy. Debe cancelarlo o usarlo antes de generar uno nuevo.',
+      );
+    }
+
     // 3. Buscar items y observaciones
-    const items = await this.menuItemRepository.find({
-      where: { id: In(createTicketDto.menuItemIds) },
+    const uniqueMenuItemIds = [...new Set(createTicketDto.menuItemIds)];
+    const foundItems = await this.menuItemRepository.find({
+      where: { id: In(uniqueMenuItemIds) },
       relations: ['recipeIngredients', 'recipeIngredients.ingredient'],
     });
-    if (items.length !== createTicketDto.menuItemIds.length) {
+    if (foundItems.length !== uniqueMenuItemIds.length) {
       throw new NotFoundException('Uno o más items no fueron encontrados.');
     }
+
+    const itemsMap = new Map(foundItems.map((item) => [item.id, item]));
+    const items = createTicketDto.menuItemIds.map((id) => itemsMap.get(id)!);
 
     const observations = user.observations || [];
 
@@ -96,11 +122,26 @@ export class TicketService {
       date: now,
       time: hour,
       company: { id: tenantId },
+      status: TicketStatus.PENDING,
     });
 
-const savedTicket = await this.ticketRepository.save(newTicket);
+    return this.ticketRepository.save(newTicket);
+  }
 
-    // 5. Actualizar stock y registrar movimientos
+  async markAsUsed(id: number, tenantId: number): Promise<Ticket> {
+    const ticket = await this.findOne(id);
+
+    if (ticket.status === TicketStatus.USED) {
+      return ticket;
+    }
+
+    // Recargar items con ingredientes para el descuento de stock
+    const items = await this.menuItemRepository.find({
+      where: { id: In(ticket.menuItems.map((i) => i.id)) },
+      relations: ['recipeIngredients', 'recipeIngredients.ingredient'],
+    });
+
+    // Actualizar stock y registrar movimientos
     for (const item of items) {
       if (item.recipeIngredients && item.recipeIngredients.length > 0) {
         // Descontar stock de ingredientes de la receta
@@ -119,8 +160,8 @@ const savedTicket = await this.ticketRepository.save(newTicket);
             unit: ingredient.unit,
             movementType: MovementType.OUT,
             reason: 'ticket',
-            relatedTicketId: savedTicket.id.toString(),
-            performedBy: user,
+            relatedTicketId: ticket.id.toString(),
+            performedBy: ticket.user,
             company: { id: tenantId },
           });
           await this.stockMovementRepository.save(stockMovement);
@@ -136,15 +177,51 @@ const savedTicket = await this.ticketRepository.save(newTicket);
           unit: 'unit' as any, // Los MenuItems no tienen una unidad definida, se asume 'unit'
           movementType: MovementType.OUT,
           reason: 'ticket',
-          relatedTicketId: savedTicket.id.toString(),
-          performedBy: user,
+          relatedTicketId: ticket.id.toString(),
+          performedBy: ticket.user,
           company: { id: tenantId },
         });
         await this.stockMovementRepository.save(stockMovement);
       }
     }
 
-    return savedTicket;
+    ticket.status = TicketStatus.USED;
+    return this.ticketRepository.save(ticket);
+  }
+
+  async pause(id: number, userId: number): Promise<Ticket> {
+    const ticket = await this.findOne(id);
+    if (ticket.user.id !== userId) {
+      throw new UnauthorizedException('No tienes permiso para pausar este ticket.');
+    }
+    ticket.status = TicketStatus.PAUSED;
+    return this.ticketRepository.save(ticket);
+  }
+
+  async cancel(id: number, userId: number): Promise<Ticket> {
+    const ticket = await this.findOne(id);
+    if (ticket.user.id !== userId) {
+      throw new UnauthorizedException('No tienes permiso para cancelar este ticket.');
+    }
+    ticket.status = TicketStatus.CANCELLED;
+    return this.ticketRepository.save(ticket);
+  }
+
+  // Este método debe ser llamado por un Cron Job (ej. cada minuto)
+  async checkExpiredTickets() {
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+
+    const expiredTickets = await this.ticketRepository.find({
+      where: {
+        status: TicketStatus.PENDING,
+        createdAt: LessThan(fifteenMinutesAgo),
+      },
+    });
+
+    for (const ticket of expiredTickets) {
+      ticket.status = TicketStatus.CANCELLED;
+      await this.ticketRepository.save(ticket);
+    }
   }
 
 

@@ -8,6 +8,7 @@ import {
   Delete,
   ParseIntPipe,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { TicketService } from '../services/ticket.service';
 import { CreateTicketDto } from '../dto/create-ticket.dto';
@@ -55,5 +56,26 @@ export class TicketController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.ticketService.remove(id);
+  }
+
+  @Patch(':id/pause')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Pausar un ticket' })
+  pause(@Param('id', ParseIntPipe) id: number, @Req() req) {
+    return this.ticketService.pause(id, req.user.id);
+  }
+
+  @Patch(':id/cancel')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Cancelar un ticket' })
+  cancel(@Param('id', ParseIntPipe) id: number, @Req() req) {
+    return this.ticketService.cancel(id, req.user.id);
+  }
+
+  @Patch(':id/use')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Marcar ticket como usado y descontar stock' })
+  markAsUsed(@Param('id', ParseIntPipe) id: number, @Tenant() tenantId: number) {
+    return this.ticketService.markAsUsed(id, tenantId);
   }
 }
