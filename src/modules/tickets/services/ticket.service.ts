@@ -20,6 +20,7 @@ import { Observation } from '../../users/entities/observation.entity';
 import { StockMovement } from 'src/modules/stock/entities/stock-movement.entity';
 import { MovementType } from 'src/modules/stock/enums/enums';
 import { Ingredient } from 'src/modules/stock/entities/ingredient.entity';
+import { TicketGateway } from './ticket.gateway';
 
 @Injectable()
 export class TicketService {
@@ -40,6 +41,7 @@ export class TicketService {
     private readonly userRepository: Repository<User>,
     private readonly usersService: UsersService,
     private readonly shiftService: ShiftService,
+    private readonly ticketGateway: TicketGateway,
   ) {}
 
   async create(createTicketDto: CreateTicketDto, tenantId: number) {
@@ -125,7 +127,15 @@ export class TicketService {
       status: TicketStatus.PENDING,
     });
 
-    return this.ticketRepository.save(newTicket);
+    const savedTicket = await this.ticketRepository.save(newTicket);
+
+    // Cargar todas las relaciones para enviar el objeto completo
+    const fullTicket = await this.findOne(savedTicket.id);
+
+    // Emitir el evento a través del gateway
+    this.ticketGateway.broadcastNewTicket(fullTicket);
+
+    return fullTicket;
   }
 
   async markAsUsed(id: number, tenantId: number): Promise<Ticket> {
@@ -192,19 +202,25 @@ export class TicketService {
     }
 
     ticket.status = TicketStatus.USED;
-    return this.ticketRepository.save(ticket);
+    const updatedTicket = await this.ticketRepository.save(ticket);
+    this.ticketGateway.broadcastTicketUpdate(updatedTicket);
+    return updatedTicket;
   }
 
   async pause(id: number): Promise<Ticket> {
     const ticket = await this.findOne(id);
     ticket.status = TicketStatus.PAUSED;
-    return this.ticketRepository.save(ticket);
+    const updatedTicket = await this.ticketRepository.save(ticket);
+    this.ticketGateway.broadcastTicketUpdate(updatedTicket);
+    return updatedTicket;
   }
 
   async cancel(id: number): Promise<Ticket> {
     const ticket = await this.findOne(id);
     ticket.status = TicketStatus.CANCELLED;
-    return this.ticketRepository.save(ticket);
+    const updatedTicket = await this.ticketRepository.save(ticket);
+    this.ticketGateway.broadcastTicketUpdate(updatedTicket);
+    return updatedTicket;
   }
 
   // Este método debe ser llamado por un Cron Job (ej. cada minuto)
@@ -220,7 +236,9 @@ export class TicketService {
 
     for (const ticket of expiredTickets) {
       ticket.status = TicketStatus.CANCELLED;
-      await this.ticketRepository.save(ticket);
+      const updatedTicket = await this.ticketRepository.save(ticket);
+      // Opcional: notificar también sobre cancelaciones automáticas
+      this.ticketGateway.broadcastTicketUpdate(updatedTicket);
     }
   }
 
@@ -260,7 +278,10 @@ export class TicketService {
 
     ticket.observations = ticket.user.observations || [];
 
-    return this.ticketRepository.save(ticket);
+    const updatedTicket = await this.ticketRepository.save(ticket);
+    this.ticketGateway.broadcastTicketUpdate(updatedTicket);
+
+    return updatedTicket;
   }
 
   async remove(id: number): Promise<void> {

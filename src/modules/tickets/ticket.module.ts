@@ -11,6 +11,8 @@ import { UsersModule } from '../users/users.module';
 import { ShiftModule } from '../shift/shift.module';
 import { StockModule } from '../stock/stock.module';
 
+import { TicketGateway } from './services/ticket.gateway';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -25,6 +27,6 @@ import { StockModule } from '../stock/stock.module';
     StockModule,
   ],
   controllers: [TicketController],
-  providers: [TicketService], // TicketService ahora puede inyectar UsersService y ShiftService
+  providers: [TicketService, TicketGateway], // TicketService ahora puede inyectar UsersService y ShiftService
 })
 export class TicketModule {}
