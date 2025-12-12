@@ -135,14 +135,20 @@ export class TicketService {
       return ticket;
     }
 
+    const menuItemIds = ticket.menuItems.map((i) => i.id);
+    const uniqueMenuItemIds = [...new Set(menuItemIds)];
+
     // Recargar items con ingredientes para el descuento de stock
-    const items = await this.menuItemRepository.find({
-      where: { id: In(ticket.menuItems.map((i) => i.id)) },
+    const foundItemsWithRelations = await this.menuItemRepository.find({
+      where: { id: In(uniqueMenuItemIds) },
       relations: ['recipeIngredients', 'recipeIngredients.ingredient'],
     });
 
+    const itemsMap = new Map(foundItemsWithRelations.map((item) => [item.id, item]));
+    const itemsToProcess = menuItemIds.map((id) => itemsMap.get(id)!);
+
     // Actualizar stock y registrar movimientos
-    for (const item of items) {
+    for (const item of itemsToProcess) {
       if (item.recipeIngredients && item.recipeIngredients.length > 0) {
         // Descontar stock de ingredientes de la receta
         for (const recipeIngredient of item.recipeIngredients) {
@@ -189,20 +195,14 @@ export class TicketService {
     return this.ticketRepository.save(ticket);
   }
 
-  async pause(id: number, userId: number): Promise<Ticket> {
+  async pause(id: number): Promise<Ticket> {
     const ticket = await this.findOne(id);
-    if (ticket.user.id !== userId) {
-      throw new UnauthorizedException('No tienes permiso para pausar este ticket.');
-    }
     ticket.status = TicketStatus.PAUSED;
     return this.ticketRepository.save(ticket);
   }
 
-  async cancel(id: number, userId: number): Promise<Ticket> {
+  async cancel(id: number): Promise<Ticket> {
     const ticket = await this.findOne(id);
-    if (ticket.user.id !== userId) {
-      throw new UnauthorizedException('No tienes permiso para cancelar este ticket.');
-    }
     ticket.status = TicketStatus.CANCELLED;
     return this.ticketRepository.save(ticket);
   }

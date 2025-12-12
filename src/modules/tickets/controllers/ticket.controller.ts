@@ -8,7 +8,6 @@ import {
   Delete,
   ParseIntPipe,
   UseGuards,
-  Req,
 } from '@nestjs/common';
 import { TicketService } from '../services/ticket.service';
 import { CreateTicketDto } from '../dto/create-ticket.dto';
@@ -17,6 +16,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
 import { Tenant } from 'src/common/decorators/tenant-decorator';
+import { Public } from 'src/common/decorators/public.decorator';
 
 @ApiBearerAuth()
 @ApiTags('Tickets')
@@ -59,17 +59,17 @@ export class TicketController {
   }
 
   @Patch(':id/pause')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Public()
   @ApiOperation({ summary: 'Pausar un ticket' })
-  pause(@Param('id', ParseIntPipe) id: number, @Req() req) {
-    return this.ticketService.pause(id, req.user.id);
+  pause(@Param('id', ParseIntPipe) id: number) {
+    return this.ticketService.pause(id);
   }
 
   @Patch(':id/cancel')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Public()
   @ApiOperation({ summary: 'Cancelar un ticket' })
-  cancel(@Param('id', ParseIntPipe) id: number, @Req() req) {
-    return this.ticketService.cancel(id, req.user.id);
+  cancel(@Param('id', ParseIntPipe) id: number) {
+    return this.ticketService.cancel(id);
   }
 
   @Patch(':id/use')
