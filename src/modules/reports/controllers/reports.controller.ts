@@ -1,4 +1,4 @@
-import { Controller, Get, Req, Query, UseGuards, ValidationPipe } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, ValidationPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
@@ -36,14 +36,49 @@ export class ReportsController {
   }
 
   @Get('consumption-trend')
-  async getConsumptionTrend(
-    @Query() dto: GetStockMovementsReportDto,
-    @Req() req: any,
+  @Roles('company_admin', 'kitchen_admin')
+  @ApiOperation({ summary: 'Obtener reporte de tendencia de consumo' })
+  getConsumptionTrend(
+    @Query(new ValidationPipe({ transform: true })) dto: GetStockMovementsReportDto,
+    @Tenant() tenantId: number,
   ) {
-    // Se asume que el tenantId está disponible en el objeto user del request
-    // (por ejemplo, extraído de un JWT o guard).
-    const tenantId = req.user.companyId; 
     return this.reportsService.getConsumptionTrend(dto, tenantId);
   }
 
+  @Get('ingredient-consumption-cost')
+  @Roles('company_admin', 'kitchen_admin')
+  @ApiOperation({ summary: 'Obtener evolución del costo de consumo de ingredientes' })
+  getIngredientConsumptionCostEvolution(
+    @Query(new ValidationPipe({ transform: true })) dto: GetStockMovementsReportDto,
+    @Tenant() tenantId: number,
+  ) {
+    return this.reportsService.getIngredientConsumptionCostEvolution(dto, tenantId);
+  }
+
+  @Get('menu-item-consumption-cost')
+  @Roles('company_admin', 'kitchen_admin')
+  @ApiOperation({ summary: 'Obtener evolución del costo de consumo de items de menú' })
+  getMenuItemConsumptionCostEvolution(
+    @Query(new ValidationPipe({ transform: true })) dto: GetStockMovementsReportDto,
+    @Tenant() tenantId: number,
+  ) {
+    return this.reportsService.getMenuItemConsumptionCostEvolution(dto, tenantId);
+  }
+
+  @Get('inventory-value')
+  @Roles('company_admin', 'kitchen_admin')
+  @ApiOperation({ summary: 'Obtener valor actual del inventario (costo)' })
+  getInventoryValueReport(@Tenant() tenantId: number) {
+    return this.reportsService.getInventoryValueReport(tenantId);
+  }
+
+  @Get('general-summary')
+  @Roles('company_admin', 'kitchen_admin')
+  @ApiOperation({ summary: 'Obtener resumen general de todos los reportes para exportación' })
+  getGeneralReport(
+    @Query(new ValidationPipe({ transform: true })) dto: GetStockMovementsReportDto,
+    @Tenant() tenantId: number,
+  ) {
+    return this.reportsService.getGeneralReport(dto, tenantId);
+  }
 }
