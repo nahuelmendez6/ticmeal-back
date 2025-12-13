@@ -157,6 +157,9 @@ export class TicketService {
     const itemsMap = new Map(foundItemsWithRelations.map((item) => [item.id, item]));
     const itemsToProcess = menuItemIds.map((id) => itemsMap.get(id)!);
 
+    const affectedIngredientIds = new Set<number>();
+    const affectedMenuItemIds = new Set<number>();
+
     // Actualizar stock y registrar movimientos
     for (const item of itemsToProcess) {
       if (item.recipeIngredients && item.recipeIngredients.length > 0) {
@@ -169,6 +172,7 @@ export class TicketService {
             'quantityInStock',
             recipeIngredient.quantity
           );
+          affectedIngredientIds.add(ingredient.id);
 
           const stockMovement = this.stockMovementRepository.create({
             ingredient: ingredient,
@@ -186,6 +190,7 @@ export class TicketService {
         // Descontar stock del menu item si no tiene receta y se traquea su stock (minStock no es nulo)
         // Usamos decrement para una operación atómica.
         await this.menuItemRepository.decrement({ id: item.id }, 'stock', 1);
+        affectedMenuItemIds.add(item.id);
 
         const stockMovement = this.stockMovementRepository.create({
           menuItem: item,
@@ -200,6 +205,13 @@ export class TicketService {
         await this.stockMovementRepository.save(stockMovement);
       }
     }
+
+    // Verificar alertas de stock mínimo
+    await this.checkAndNotifyLowStock(
+      Array.from(affectedIngredientIds),
+      Array.from(affectedMenuItemIds),
+      tenantId,
+    );
 
     ticket.status = TicketStatus.USED;
     const updatedTicket = await this.ticketRepository.save(ticket);
@@ -289,5 +301,48 @@ export class TicketService {
     if (result.affected === 0) {
       throw new NotFoundException(`Ticket with ID #${id} not found`);
     }
+  }
+
+  private async checkAndNotifyLowStock(
+    ingredientIds: number[],
+    menuItemIds: number[],
+    tenantId: number,
+  ) {
+    if (ingredientIds.length > 0) {
+      const ingredients = await this.ingredientRepository.find({
+        where: { id: In(ingredientIds) },
+      });
+      for (const ingredient of ingredients) {
+        if (
+          ingredient.minStock !== null &&
+          ingredient.quantityInStock <= ingredient.minStock
+        ) {
+          this.emitLowStockAlert('ingredient', ingredient, tenantId);
+        }
+      }
+    }
+
+    if (menuItemIds.length > 0) {
+      const menuItems = await this.menuItemRepository.find({
+        where: { id: In(menuItemIds) },
+      });
+      for (const item of menuItems) {
+        if (item.minStock !== null && item.stock <= item.minStock) {
+          this.emitLowStockAlert('menuItem', item, tenantId);
+        }
+      }
+    }
+  }
+
+  private emitLowStockAlert(type: 'ingredient' | 'menuItem', entity: any, tenantId: number) {
+    this.ticketGateway.broadcastLowStockAlert({
+      type,
+      id: entity.id,
+      name: entity.name,
+      currentStock: type === 'ingredient' ? entity.quantityInStock : entity.stock,
+      minStock: entity.minStock,
+      unit: type === 'ingredient' ? entity.unit : 'unit',
+      companyId: tenantId,
+    });
   }
 }

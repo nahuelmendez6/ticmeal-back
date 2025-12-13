@@ -25,7 +25,14 @@ export class TicketGateway
   }
 
   handleConnection(client: Socket, ...args: any[]) {
-    this.logger.log(`Client connected: ${client.id}`);
+    const companyId = client.handshake.query.companyId;
+    if (companyId) {
+      const room = `company_${companyId}`;
+      client.join(room);
+      this.logger.log(`Client ${client.id} joined room: ${room}`);
+    } else {
+      this.logger.warn(`Client ${client.id} connected without companyId`);
+    }
   }
 
   handleDisconnect(client: Socket) {
@@ -33,12 +40,27 @@ export class TicketGateway
   }
 
   broadcastNewTicket(ticket: Ticket) {
-    this.server.emit('newTicket', ticket);
-    this.logger.log(`Broadcasting new ticket: ${ticket.id}`);
+    const companyId = ticket.companyId || (ticket.company && ticket.company.id);
+    if (companyId) {
+      this.server.to(`company_${companyId}`).emit('newTicket', ticket);
+      this.logger.log(`Broadcasting new ticket: ${ticket.id} to company_${companyId}`);
+    }
   }
 
   broadcastTicketUpdate(ticket: Ticket) {
-    this.server.emit('ticketUpdated', ticket);
-    this.logger.log(`Broadcasting update for ticket: ${ticket.id}`);
+    const companyId = ticket.companyId || (ticket.company && ticket.company.id);
+    if (companyId) {
+      this.server.to(`company_${companyId}`).emit('ticketUpdated', ticket);
+      this.logger.log(`Broadcasting update for ticket: ${ticket.id} to company_${companyId}`);
+    }
+  }
+
+  broadcastLowStockAlert(payload: any) {
+    if (payload.companyId) {
+      this.server.to(`company_${payload.companyId}`).emit('lowStockAlert', payload);
+      this.logger.warn(
+        `Low stock alert emitted for ${payload.type}: ${payload.name} to company_${payload.companyId}`,
+      );
+    }
   }
 }
