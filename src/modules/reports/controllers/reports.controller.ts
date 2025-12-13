@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards, ValidationPipe } from '@nestjs/common';
+import { Controller, Get, Req, Query, UseGuards, ValidationPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
@@ -34,4 +34,16 @@ export class ReportsController {
   ) {
     return this.reportsService.getMostConsumedItems(dto, tenantId);
   }
+
+  @Get('consumption-trend')
+  async getConsumptionTrend(
+    @Query() dto: GetStockMovementsReportDto,
+    @Req() req: any,
+  ) {
+    // Se asume que el tenantId está disponible en el objeto user del request
+    // (por ejemplo, extraído de un JWT o guard).
+    const tenantId = req.user.companyId; 
+    return this.reportsService.getConsumptionTrend(dto, tenantId);
+  }
+
 }
