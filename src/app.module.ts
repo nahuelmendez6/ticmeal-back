@@ -10,6 +10,7 @@ import { TicketModule } from './modules/tickets/ticket.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { CompaniesModule } from './modules/companies/companies.module';
 import { AdminAuthModule } from './modules/admin_auth/admin-auth.module';
+import { BackofficeUsersModule } from './modules/users_backoffice/backoffice-users.module';
 import { TenantContextService } from './common/context/tenant-context.service';
 import { TenantInterceptor } from './common/interceptors/tenant-interceptor';
 
@@ -33,6 +34,7 @@ import { TenantInterceptor } from './common/interceptors/tenant-interceptor';
     TicketModule,
     ReportsModule,
     AdminAuthModule,
+    BackofficeUsersModule,
   ],
   providers: [
     TenantContextService,

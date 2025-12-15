@@ -13,10 +13,11 @@ export class AdminUser {
   passwordHash: string;
 
   @Column({
-    type: 'simple-array',
-    default: AdminRole.SUPER_ADMIN
+    type: 'varchar',
+    length: 50,
+    default: AdminRole.SUPER_ADMIN,
   })
-  roles: AdminRole[];
+  role: AdminRole;
 
   @Column({ default: true })
   isActive: boolean;

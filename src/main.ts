@@ -5,6 +5,7 @@ import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { GlobalExceptionFilter } from './common/filters/global-exception-filter';
 import { TenantInterceptor } from './common/interceptors/tenant-interceptor';
 
 async function bootstrap() {
@@ -18,7 +19,7 @@ async function bootstrap() {
   });
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
-  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalFilters(new HttpExceptionFilter(), new GlobalExceptionFilter());
 
   const config = new DocumentBuilder()
     .setTitle('Ticmeal API')

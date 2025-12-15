@@ -17,25 +17,25 @@ export class AdminAuthService {
   ) {}
 
   async register(createAdminDto: CreateAdminDto): Promise<AdminUser> {
-    const { username, password, roles } = createAdminDto;
+    const { username, password, role } = createAdminDto;
 
     const existingUser = await this.adminUserRepository.findOne({ where: { username } });
     if (existingUser) {
       throw new ConflictException('El administrador ya existe');
     }
 
-    const salt = await bcrypt.genSalt();
-    const passwordHash = await bcrypt.hash(password, salt);
+    const passwordHash = await bcrypt.hash(password, 10);
 
     const newAdmin = this.adminUserRepository.create({
       username,
       passwordHash,
-      roles: roles || [AdminRole.SUPER_ADMIN],
+      role: role ?? AdminRole.SUPER_ADMIN,
       isActive: true,
     });
 
     return this.adminUserRepository.save(newAdmin);
   }
+
 
   async validateUser(loginAdminDto: LoginAdminDto): Promise<AdminUser> {
     const { username, password } = loginAdminDto;
@@ -43,7 +43,7 @@ export class AdminAuthService {
     // Necesitamos seleccionar el passwordHash explícitamente porque tiene select: false en la entidad
     const user = await this.adminUserRepository.findOne({ 
       where: { username },
-      select: ['id', 'username', 'passwordHash', 'roles', 'isActive']
+      select: ['id', 'username', 'passwordHash', 'role', 'isActive']
     });
 
     if (user && user.isActive && await bcrypt.compare(password, user.passwordHash)) {
@@ -55,7 +55,7 @@ export class AdminAuthService {
   }
 
   async login(user: AdminUser) {
-    const payload = { username: user.username, sub: user.id, roles: user.roles, isAdmin: true };
+    const payload = { username: user.username, sub: user.id, roles: user.role, isAdmin: true };
     return {
       access_token: this.jwtService.sign(payload),
     };

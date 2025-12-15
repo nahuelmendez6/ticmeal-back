@@ -12,5 +12,5 @@ export class CreateAdminDto {
   @IsArray()
   @IsEnum(AdminRole, { each: true })
   @IsOptional()
-  roles?: AdminRole[];
+  role?: AdminRole;
 }

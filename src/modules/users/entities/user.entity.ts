@@ -2,14 +2,12 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  ManyToOne,
   OneToMany,
   ManyToMany,
   CreateDateColumn,
   UpdateDateColumn,
   JoinTable,
 } from 'typeorm';
-import { Company } from 'src/modules/companies/entities/company.entity';
 import { Observation } from './observation.entity';
 import { BaseTenantEntity } from 'src/common/entities/base-tenant.entity';
 import { Ticket } from 'src/modules/tickets/entities/ticket.entity';
@@ -77,4 +75,5 @@ export class User extends BaseTenantEntity {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
 }

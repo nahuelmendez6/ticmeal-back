@@ -40,7 +40,7 @@ export class Company {
     @Column({ default: 'active' })
     status: string;
 
-    @OneToMany(() => User, (user) => user.company)
+    @OneToMany('User', (user: User) => user.company)
     users: User[];
 
     @CreateDateColumn()

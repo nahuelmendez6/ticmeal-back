@@ -13,6 +13,6 @@ export class Observation {
   @Column({ name: 'icon_name', length: 50 })
   iconName: string;
 
-  @ManyToMany(() => User, (user) => user.observations)
+  @ManyToMany('User', (user: User) => user.observations)
   users: User[];
 }
