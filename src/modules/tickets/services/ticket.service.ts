@@ -232,8 +232,8 @@ export class TicketService {
           });
           await this.stockMovementRepository.save(stockMovement);
         }
-      } else if (item.stock !== null && item.stock !== undefined) {
-        // Descontar stock del menu item si no tiene receta y tiene stock definido
+      } else if (item.minStock !== null) {
+        // Descontar stock del menu item si no tiene receta y se traquea su stock (minStock no es nulo)
         // Usamos decrement para una operación atómica.
         await this.menuItemRepository.decrement({ id: item.id }, 'stock', 1);
         affectedMenuItemIds.add(item.id);
