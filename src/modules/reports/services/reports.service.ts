@@ -70,21 +70,22 @@ export class ReportsService {
     endDate.setUTCHours(23, 59, 59, 999);
 
     const query = this.ticketRepository
-      .createQueryBuilder('ticket')
-      .innerJoin('ticket.menuItems', 'menuItem')
-      .select('menuItem.name', 'name')
-      .addSelect('COUNT(menuItem.id)', 'totalConsumed')
-      .where('ticket.companyId = :tenantId', { tenantId })
-      .andWhere('ticket.status = :status', { status: TicketStatus.USED })
-      .andWhere('menuItem.isActive = :isActive', { isActive: true })
-      .andWhere('ticket.createdAt BETWEEN :startDate AND :endDate', {
-        startDate,
-        endDate,
-      })
-      .groupBy('menuItem.id')
-      .addGroupBy('menuItem.name')
-      .orderBy('totalConsumed', 'DESC')
-      .limit(limit);
+    .createQueryBuilder('ticket')
+    .innerJoin('ticket.menuItems', 'menuItem')
+    .select('menuItem.name', 'name')
+    .addSelect('COUNT(menuItem.id)', 'totalConsumed')
+    .where('ticket.companyId = :tenantId', { tenantId })
+    .andWhere('ticket.status = :status', { status: TicketStatus.USED })
+    .andWhere('menuItem.isActive = :isActive', { isActive: true })
+    .andWhere('ticket.createdAt BETWEEN :startDate AND :endDate', {
+      startDate,
+      endDate,
+    })
+    .groupBy('menuItem.id')
+    .addGroupBy('menuItem.name')
+    .orderBy('COUNT(menuItem.id)', 'DESC')
+    .limit(limit);
+
 
     const rawReport = await query.getRawMany();
     return rawReport.map((r) => ({
