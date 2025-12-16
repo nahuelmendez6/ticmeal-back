@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { TicketService } from '../services/ticket.service';
 import { CreateTicketDto } from '../dto/create-ticket.dto';
+import { CreateManualTicketDto } from '../dto/create-manual-ticket.dto';
 import { UpdateTicketDto } from '../dto/update-ticket.dto';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
@@ -30,6 +31,13 @@ export class TicketController {
   @ApiOperation({ summary: 'Crear un nuevo ticket' })
   create(@Body() createTicketDto: CreateTicketDto, @Tenant() tenantId: number) {
     return this.ticketService.create(createTicketDto, tenantId);
+  }
+
+  @Post('manual')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Crear un ticket manual asignado a un usuario' })
+  createManual(@Body() createManualTicketDto: CreateManualTicketDto, @Tenant() tenantId: number) {
+    return this.ticketService.createManual(createManualTicketDto, tenantId);
   }
 
   @Get()

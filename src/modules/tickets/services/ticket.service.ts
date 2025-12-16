@@ -10,6 +10,7 @@ import { In, Repository, Not, LessThan, Between } from 'typeorm';
 
 import { Ticket, TicketStatus } from '../entities/ticket.entity';
 import { CreateTicketDto } from '../dto/create-ticket.dto';
+import { CreateManualTicketDto } from '../dto/create-manual-ticket.dto';
 import { UpdateTicketDto } from '../dto/update-ticket.dto';
 import { User } from '../../users/entities/user.entity';
 import { UsersService } from 'src/modules/users/services/user.service';
@@ -65,6 +66,42 @@ export class TicketService {
       throw new UnauthorizedException('PIN incorrecto o usuario no encontrado.');
     }
 
+    return this.processTicketCreation(user, createTicketDto.menuItemIds, tenantId);
+  }
+
+  async createManual(
+    dto: CreateManualTicketDto,
+    tenantId: number,
+  ) {
+    if (!dto.userId) {
+      throw new BadRequestException('El ID de usuario es requerido para tickets manuales.');
+    }
+
+    // 1. Buscar usuario por ID dentro del tenant
+    const user = await this.userRepository.findOne({
+      where: { id: dto.userId, company: { id: tenantId } },
+      relations: ['observations'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado.');
+    }
+
+    // 1. Crear ticket como PENDING primero
+    const ticket = await this.processTicketCreation(user, dto.menuItemIds, tenantId, TicketStatus.PENDING);
+
+    // 2. Descontar stock
+    await this.deductStockForTicket(ticket, tenantId);
+
+    // 3. Actualizar a USED
+    ticket.status = TicketStatus.USED;
+    const usedTicket = await this.ticketRepository.save(ticket);
+    this.ticketGateway.broadcastTicketUpdate(usedTicket);
+
+    return usedTicket;
+  }
+
+  private async processTicketCreation(user: User, menuItemIds: number[], tenantId: number, status: TicketStatus = TicketStatus.PENDING) {
     // 2. Obtener turno activo
     const now = new Date();
     const hour = now.toTimeString().split(' ')[0]; // HH:mm:ss
@@ -74,7 +111,7 @@ export class TicketService {
     );
     if (!activeShift || activeShift.length === 0) {
       throw new BadRequestException(
-        'No hay un turno activo en este momento para registrar el ticket.'
+        'No hay un turno activo en este momento para registrar el ticket.',
       );
     }
 
@@ -101,7 +138,7 @@ export class TicketService {
     }
 
     // 3. Buscar items y observaciones
-    const uniqueMenuItemIds = [...new Set(createTicketDto.menuItemIds)];
+    const uniqueMenuItemIds = [...new Set(menuItemIds)];
     const foundItems = await this.menuItemRepository.find({
       where: { id: In(uniqueMenuItemIds) },
       relations: ['recipeIngredients', 'recipeIngredients.ingredient'],
@@ -111,7 +148,7 @@ export class TicketService {
     }
 
     const itemsMap = new Map(foundItems.map((item) => [item.id, item]));
-    const items = createTicketDto.menuItemIds.map((id) => itemsMap.get(id)!);
+    const items = menuItemIds.map((id) => itemsMap.get(id)!);
 
     const observations = user.observations || [];
 
@@ -124,7 +161,7 @@ export class TicketService {
       date: now,
       time: hour,
       company: { id: tenantId },
-      status: TicketStatus.PENDING,
+      status: status,
     });
 
     const savedTicket = await this.ticketRepository.save(newTicket);
@@ -145,6 +182,15 @@ export class TicketService {
       return ticket;
     }
 
+    await this.deductStockForTicket(ticket, tenantId);
+
+    ticket.status = TicketStatus.USED;
+    const updatedTicket = await this.ticketRepository.save(ticket);
+    this.ticketGateway.broadcastTicketUpdate(updatedTicket);
+    return updatedTicket;
+  }
+
+  private async deductStockForTicket(ticket: Ticket, tenantId: number) {
     const menuItemIds = ticket.menuItems.map((i) => i.id);
     const uniqueMenuItemIds = [...new Set(menuItemIds)];
 
@@ -186,8 +232,8 @@ export class TicketService {
           });
           await this.stockMovementRepository.save(stockMovement);
         }
-      } else if (item.minStock !== null) {
-        // Descontar stock del menu item si no tiene receta y se traquea su stock (minStock no es nulo)
+      } else if (item.stock !== null && item.stock !== undefined) {
+        // Descontar stock del menu item si no tiene receta y tiene stock definido
         // Usamos decrement para una operación atómica.
         await this.menuItemRepository.decrement({ id: item.id }, 'stock', 1);
         affectedMenuItemIds.add(item.id);
@@ -212,11 +258,6 @@ export class TicketService {
       Array.from(affectedMenuItemIds),
       tenantId,
     );
-
-    ticket.status = TicketStatus.USED;
-    const updatedTicket = await this.ticketRepository.save(ticket);
-    this.ticketGateway.broadcastTicketUpdate(updatedTicket);
-    return updatedTicket;
   }
 
   async pause(id: number): Promise<Ticket> {
