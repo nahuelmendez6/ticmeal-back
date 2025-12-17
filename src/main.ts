@@ -11,9 +11,13 @@ import { TenantInterceptor } from './common/interceptors/tenant-interceptor';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS for the React frontend
+  // 1. Ajuste de CORS para Producción
   app.enableCors({
-    origin: 'http://localhost:5173',
+    // Permite localhost para pruebas y agrega la URL de Vercel cuando la tengas
+    origin: [
+      'http://localhost:5173', 
+      /\.vercel\.app$/, // Esto permite cualquier subdominio de Vercel (muy útil para demos)
+    ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
@@ -35,6 +39,10 @@ async function bootstrap() {
 
   app.useGlobalInterceptors(app.get(TenantInterceptor));
 
-  await app.listen(process.env.PORT ?? 3000);
+  // 2. Escuchar en el host 0.0.0.0 (Requerido por Render)
+  const port = process.env.PORT || 3000;
+  await app.listen(port, '0.0.0.0'); 
+  
+  console.log(`Application is running on: ${await app.getUrl()}`);
 }
 bootstrap();
