@@ -71,9 +71,10 @@ export class ReportsService {
 
     const query = this.ticketRepository
     .createQueryBuilder('ticket')
-    .innerJoin('ticket.menuItems', 'menuItem')
+    .innerJoin('ticket.items', 'ticketItem')
+    .innerJoin('ticketItem.menuItem', 'menuItem')
     .select('menuItem.name', 'name')
-    .addSelect('COUNT(menuItem.id)', 'totalConsumed')
+    .addSelect('SUM(ticketItem.quantity)', 'totalConsumed')
     .where('ticket.companyId = :tenantId', { tenantId })
     .andWhere('ticket.status = :status', { status: TicketStatus.USED })
     .andWhere('menuItem.isActive = :isActive', { isActive: true })
@@ -83,7 +84,7 @@ export class ReportsService {
     })
     .groupBy('menuItem.id')
     .addGroupBy('menuItem.name')
-    .orderBy('COUNT(menuItem.id)', 'DESC')
+    .orderBy('SUM(ticketItem.quantity)', 'DESC')
     .limit(limit);
 
 
@@ -109,10 +110,11 @@ export class ReportsService {
 
     const query = this.ticketRepository
       .createQueryBuilder('ticket')
-      .innerJoin('ticket.menuItems', 'menuItem')
+      .innerJoin('ticket.items', 'ticketItem')
+      .innerJoin('ticketItem.menuItem', 'menuItem')
       .select('CAST(ticket.createdAt AS DATE)', 'date')
       .addSelect('menuItem.name', 'itemName')
-      .addSelect('COUNT(menuItem.id)', 'totalConsumed')
+      .addSelect('SUM(ticketItem.quantity)', 'totalConsumed')
       .where('ticket.companyId = :tenantId', { tenantId })
       .andWhere('ticket.status = :status', { status: TicketStatus.USED })
       .andWhere('menuItem.isActive = :isActive', { isActive: true })
@@ -205,10 +207,11 @@ export class ReportsService {
 
     const query = this.ticketRepository
       .createQueryBuilder('ticket')
-      .innerJoin('ticket.menuItems', 'menuItem')
+      .innerJoin('ticket.items', 'ticketItem')
+      .innerJoin('ticketItem.menuItem', 'menuItem')
       .select('CAST(ticket.createdAt AS DATE)', 'date')
       .addSelect('menuItem.name', 'menuItemName')
-      .addSelect('SUM(COALESCE(menuItem.cost, 0))', 'dailyMenuItemCost')
+      .addSelect('SUM(ticketItem.quantity * COALESCE(menuItem.cost, 0))', 'dailyMenuItemCost')
       .where('ticket.companyId = :tenantId', { tenantId })
       .andWhere('ticket.status = :status', { status: TicketStatus.USED })
       .andWhere('menuItem.isActive = :isActive', { isActive: true })
@@ -371,9 +374,10 @@ export class ReportsService {
     // Evitamos el producto cartesiano haciendo esta consulta por separado.
     const consumptionQuery = this.ticketRepository
       .createQueryBuilder('ticket')
-      .innerJoin('ticket.menuItems', 'menuItem')
+      .innerJoin('ticket.items', 'ticketItem')
+      .innerJoin('ticketItem.menuItem', 'menuItem')
       .select('menuItem.id', 'menuItemId')
-      .addSelect('COUNT(menuItem.id)', 'totalConsumed')
+      .addSelect('SUM(ticketItem.quantity)', 'totalConsumed')
       .where('ticket.companyId = :tenantId', { tenantId })
       .andWhere('ticket.status = :status', { status: TicketStatus.USED })
       .andWhere('ticket.createdAt BETWEEN :startDate AND :endDate', {

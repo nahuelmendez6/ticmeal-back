@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TicketService } from './services/ticket.service';
 import { TicketController } from './controllers/ticket.controller';
 import { Ticket } from './entities/ticket.entity';
+import { TicketItem } from './entities/ticket-item.entity';
 import { User } from '../users/entities/user.entity';
 import { Shift } from '../shift/entities/shift.entity';
 import { MenuItems } from '../stock/entities/menu-items.entity';
@@ -17,6 +18,7 @@ import { TicketGateway } from './services/ticket.gateway';
   imports: [
     TypeOrmModule.forFeature([
       Ticket,
+      TicketItem,
       User,
       Shift,
       MenuItems,

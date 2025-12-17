@@ -22,6 +22,7 @@ import { StockMovement } from 'src/modules/stock/entities/stock-movement.entity'
 import { MovementType } from 'src/modules/stock/enums/enums';
 import { Ingredient } from 'src/modules/stock/entities/ingredient.entity';
 import { TicketGateway } from './ticket.gateway';
+import { TicketItem } from '../entities/ticket-item.entity';
 
 @Injectable()
 export class TicketService {
@@ -65,7 +66,7 @@ export class TicketService {
     if (!user) {
       throw new UnauthorizedException('PIN incorrecto o usuario no encontrado.');
     }
-
+    // si el usuario fue encontrado y el PIN es correcto, proceder a crear el ticket
     return this.processTicketCreation(user, createTicketDto.menuItemIds, tenantId);
   }
 
@@ -148,7 +149,22 @@ export class TicketService {
     }
 
     const itemsMap = new Map(foundItems.map((item) => [item.id, item]));
-    const items = menuItemIds.map((id) => itemsMap.get(id)!);
+    
+    // Agrupar items y calcular cantidades
+    const itemCounts = new Map<number, number>();
+    menuItemIds.forEach((id) => itemCounts.set(id, (itemCounts.get(id) || 0) + 1));
+
+    const ticketItems: TicketItem[] = [];
+    for (const [id, qty] of itemCounts) {
+      const menuItem = itemsMap.get(id);
+      if (menuItem) {
+        const ti = new TicketItem();
+        ti.menuItem = menuItem;
+        ti.quantity = qty;
+        ti.companyId = tenantId;
+        ticketItems.push(ti);
+      }
+    }
 
     const observations = user.observations || [];
 
@@ -156,7 +172,7 @@ export class TicketService {
     const newTicket = this.ticketRepository.create({
       user,
       shift: activeShift[0],
-      menuItems: items,
+      items: ticketItems,
       observations,
       date: now,
       time: hour,
@@ -168,6 +184,13 @@ export class TicketService {
 
     // Cargar todas las relaciones para enviar el objeto completo
     const fullTicket = await this.findOne(savedTicket.id);
+
+    // Mapeamos para mantener compatibilidad con la respuesta esperada por el frontend si es necesario,
+    // aunque ahora la estructura real es 'items' con 'quantity'.
+    // Si el frontend espera 'menuItems' como array plano con duplicados:
+    const flatMenuItems: MenuItems[] = [];
+    fullTicket.items.forEach(ti => { for(let i=0; i<ti.quantity; i++) flatMenuItems.push(ti.menuItem); });
+    (fullTicket as any).menuItems = flatMenuItems;
 
     // Emitir el evento a través del gateway
     this.ticketGateway.broadcastNewTicket(fullTicket);
@@ -191,7 +214,7 @@ export class TicketService {
   }
 
   private async deductStockForTicket(ticket: Ticket, tenantId: number) {
-    const menuItemIds = ticket.menuItems.map((i) => i.id);
+    const menuItemIds = ticket.items.map((i) => i.menuItem.id);
     const uniqueMenuItemIds = [...new Set(menuItemIds)];
 
     // Recargar items con ingredientes para el descuento de stock
@@ -201,28 +224,32 @@ export class TicketService {
     });
 
     const itemsMap = new Map(foundItemsWithRelations.map((item) => [item.id, item]));
-    const itemsToProcess = menuItemIds.map((id) => itemsMap.get(id)!);
 
     const affectedIngredientIds = new Set<number>();
     const affectedMenuItemIds = new Set<number>();
 
     // Actualizar stock y registrar movimientos
-    for (const item of itemsToProcess) {
+    for (const ticketItem of ticket.items) {
+      const item = itemsMap.get(ticketItem.menuItem.id);
+      if (!item) continue;
+      const qty = ticketItem.quantity;
+
       if (item.recipeIngredients && item.recipeIngredients.length > 0) {
         // Descontar stock de ingredientes de la receta
         for (const recipeIngredient of item.recipeIngredients) {
           const ingredient = recipeIngredient.ingredient;
+          const deductAmount = recipeIngredient.quantity * qty;
           // Usamos decrement para una operación atómica y más segura.
           await this.ingredientRepository.decrement(
             { id: ingredient.id },
             'quantityInStock',
-            recipeIngredient.quantity
+            deductAmount
           );
           affectedIngredientIds.add(ingredient.id);
 
           const stockMovement = this.stockMovementRepository.create({
             ingredient: ingredient,
-            quantity: recipeIngredient.quantity,
+            quantity: deductAmount,
             unit: ingredient.unit,
             movementType: MovementType.OUT,
             reason: 'ticket',
@@ -235,12 +262,12 @@ export class TicketService {
       } else if (item.minStock !== null) {
         // Descontar stock del menu item si no tiene receta y se traquea su stock (minStock no es nulo)
         // Usamos decrement para una operación atómica.
-        await this.menuItemRepository.decrement({ id: item.id }, 'stock', 1);
+        await this.menuItemRepository.decrement({ id: item.id }, 'stock', qty);
         affectedMenuItemIds.add(item.id);
 
         const stockMovement = this.stockMovementRepository.create({
           menuItem: item,
-          quantity: 1,
+          quantity: qty,
           unit: 'unit' as any, // Los MenuItems no tienen una unidad definida, se asume 'unit'
           movementType: MovementType.OUT,
           reason: 'ticket',
@@ -298,14 +325,14 @@ export class TicketService {
 
   findAll(): Promise<Ticket[]> {
     return this.ticketRepository.find({
-      relations: ['user', 'shift', 'menuItems', 'observations'],
+      relations: ['user', 'shift', 'items', 'items.menuItem', 'observations'],
     });
   }
 
   async findOne(id: number): Promise<Ticket> {
     const ticket = await this.ticketRepository.findOne({
       where: { id },
-      relations: ['user', 'shift', 'menuItems', 'observations'],
+      relations: ['user', 'shift', 'items', 'items.menuItem', 'observations'],
     });
     if (!ticket) {
       throw new NotFoundException(`Ticket with ID #${id} not found`);
@@ -326,7 +353,25 @@ export class TicketService {
     }
 
     if (menuItemIds) {
-      ticket.menuItems = await this.menuItemRepository.findBy({ id: In(menuItemIds) });
+      // Reconstruir items
+      const foundItems = await this.menuItemRepository.findBy({ id: In(menuItemIds) });
+      const itemsMap = new Map(foundItems.map((item) => [item.id, item]));
+      const itemCounts = new Map<number, number>();
+      menuItemIds.forEach((id) => itemCounts.set(id, (itemCounts.get(id) || 0) + 1));
+
+      const newTicketItems: TicketItem[] = [];
+      for (const [id, qty] of itemCounts) {
+        const menuItem = itemsMap.get(id);
+        if (menuItem) {
+          const ti = new TicketItem();
+          ti.menuItem = menuItem;
+          ti.quantity = qty;
+          // companyId se asignará al guardar si el contexto lo maneja o se puede copiar del ticket
+          ti.companyId = ticket.companyId;
+          newTicketItems.push(ti);
+        }
+      }
+      ticket.items = newTicketItems;
     }
 
     ticket.observations = ticket.user.observations || [];

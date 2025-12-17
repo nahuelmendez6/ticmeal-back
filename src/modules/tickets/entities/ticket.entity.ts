@@ -14,8 +14,8 @@ import {
 import { User } from 'src/modules/users/entities/user.entity';
 import { BaseTenantEntity } from 'src/common/entities/base-tenant.entity';
 import { Shift } from 'src/modules/shift/entities/shift.entity';
-import { MenuItems } from 'src/modules/stock/entities/menu-items.entity';
 import { Observation } from 'src/modules/users/entities/observation.entity';
+import { TicketItem } from './ticket-item.entity';
 
 export enum TicketStatus {
     PENDING = 'pending', // pendiente
@@ -64,13 +64,12 @@ export class Ticket extends BaseTenantEntity {
     @Column({ type: 'timestamp', nullable: true, comment: 'Fecha y hora de expiración del ticket' })
     expiresAt: Date | null;
 
-    @ManyToMany(() => MenuItems, { eager: true, cascade: true })
-    @JoinTable({
-        name: 'ticket_menu_items',
-        joinColumn: { name: 'ticket_id', referencedColumnName: 'id' },
-        inverseJoinColumn: { name: 'menu_item_id', referencedColumnName: 'id' },
+    @OneToMany(() => TicketItem, (ticketItem) => ticketItem.ticket, {
+        cascade: true,
+        eager: true,
+        
     })
-    menuItems: MenuItems[];
+    items: TicketItem[];
 
     @ManyToMany(() => Observation, { eager: true, cascade: true })
     @JoinTable({
