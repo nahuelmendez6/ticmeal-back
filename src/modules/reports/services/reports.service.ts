@@ -448,6 +448,113 @@ export class ReportsService {
   }
 
   /**
+   * Genera un reporte detallado de costos desglosado por Día, Turno e Ítem.
+   * Permite analizar en qué momentos (turnos) y productos se concentra el gasto.
+   * @param dto - DTO con rango de fechas.
+   * @param tenantId - ID del tenant.
+   * @returns Estructura jerárquica: Día -> Turnos -> Items con costos.
+   */
+  async getDetailedCostAnalysis(dto: GetStockMovementsReportDto, tenantId: number) {
+    const { startDate: startDateStr, endDate: endDateStr } = dto;
+    const startDate = new Date(startDateStr);
+    const endDate = new Date(endDateStr);
+    endDate.setUTCHours(23, 59, 59, 999);
+
+    // 1. Pre-calcular costos unitarios de todos los items (Costo Receta vs Costo Fijo)
+    // Esto asegura que usemos el costo real de los ingredientes si el item tiene receta.
+    const menuItemsQuery = this.menuItemRepository
+      .createQueryBuilder('menuItem')
+      .leftJoin('menuItem.recipeIngredients', 'recipeIngredient')
+      .leftJoin('recipeIngredient.ingredient', 'ingredient')
+      .select('menuItem.id', 'id')
+      .addSelect('menuItem.cost', 'fixedCost')
+      .addSelect(
+        'SUM(COALESCE(recipeIngredient.quantity, 0) * COALESCE(ingredient.cost, 0))',
+        'calculatedCost',
+      )
+      .where('menuItem.company = :tenantId', { tenantId })
+      .groupBy('menuItem.id')
+      .addGroupBy('menuItem.cost');
+
+    const menuItemsCosts = await menuItemsQuery.getRawMany();
+    const costMap = new Map<number, number>();
+    
+    menuItemsCosts.forEach(row => {
+        const fixed = parseFloat(row.fixedCost || '0');
+        const calculated = parseFloat(row.calculatedCost || '0');
+        // Prioridad al costo calculado (receta) si es mayor a 0
+        costMap.set(row.id, calculated > 0 ? calculated : fixed);
+    });
+
+    // 2. Obtener consumo desglosado por Día, Turno e Item
+    const query = this.ticketRepository.createQueryBuilder('ticket')
+        .leftJoin('ticket.shift', 'shift') // Left join para incluir tickets sin turno si los hubiera
+        .innerJoin('ticket.items', 'ticketItem')
+        .innerJoin('ticketItem.menuItem', 'menuItem')
+        .select('CAST(ticket.createdAt AS DATE)', 'date')
+        .addSelect('shift.name', 'shiftName')
+        .addSelect('menuItem.id', 'menuItemId')
+        .addSelect('menuItem.name', 'menuItemName')
+        .addSelect('SUM(ticketItem.quantity)', 'quantity')
+        .where('ticket.companyId = :tenantId', { tenantId })
+        .andWhere('ticket.status = :status', { status: TicketStatus.USED })
+        .andWhere('ticket.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
+        .groupBy('CAST(ticket.createdAt AS DATE)')
+        .addGroupBy('shift.name')
+        .addGroupBy('menuItem.id')
+        .addGroupBy('menuItem.name')
+        .orderBy('date', 'ASC')
+        .addOrderBy('shift.name', 'ASC');
+
+    const rawData = await query.getRawMany();
+
+    // 3. Estructurar el reporte jerárquicamente
+    const reportMap = new Map<string, any>();
+
+    for (const row of rawData) {
+        const date = row.date instanceof Date ? row.date.toISOString().split('T')[0] : row.date;
+        const shiftName = row.shiftName || 'Sin Turno';
+        const menuItemId = Number(row.menuItemId);
+        const quantity = parseInt(row.quantity, 10);
+        const unitCost = costMap.get(menuItemId) || 0;
+        const totalCost = unitCost * quantity;
+
+        if (!reportMap.has(date)) {
+            reportMap.set(date, { 
+                date, 
+                totalDailyCost: 0,
+                shifts: new Map<string, any>() 
+            });
+        }
+        const dayEntry = reportMap.get(date);
+        
+        if (!dayEntry.shifts.has(shiftName)) {
+            dayEntry.shifts.set(shiftName, { 
+                shiftName, 
+                totalShiftCost: 0,
+                items: [] 
+            });
+        }
+        const shiftEntry = dayEntry.shifts.get(shiftName);
+
+        shiftEntry.items.push({
+            menuItemName: row.menuItemName,
+            quantity,
+            unitCost,
+            totalCost
+        });
+        shiftEntry.totalShiftCost += totalCost;
+        dayEntry.totalDailyCost += totalCost;
+    }
+
+    // Convertir Maps a Arrays para el formato JSON final
+    return Array.from(reportMap.values()).map(day => ({
+        ...day,
+        shifts: Array.from(day.shifts.values())
+    }));
+  }
+
+  /**
    * Agrega todos los reportes en una sola estructura para facilitar la exportación (PDF/Excel).
    * Ejecuta las consultas en paralelo.
    * @param dto - DTO con rango de fechas y filtros.
@@ -462,6 +569,9 @@ export class ReportsService {
       ingredientCostEvolution,
       menuItemCostEvolution,
       inventoryValue,
+      consumptionVsCost,
+      theoreticalMenuCost,
+      detailedCostAnalysis,
     ] = await Promise.all([
       this.getStockMovementsReport(dto, tenantId),
       this.getMostConsumedItems(dto, tenantId),
@@ -469,15 +579,30 @@ export class ReportsService {
       this.getIngredientConsumptionCostEvolution(dto, tenantId),
       this.getMenuItemConsumptionCostEvolution(dto, tenantId),
       this.getInventoryValueReport(tenantId),
+      this.getConsumptionVsCostReport(dto, tenantId),
+      this.getTheoreticalMenuCostReport(tenantId),
+      this.getDetailedCostAnalysis(dto, tenantId),
     ]);
 
     return {
-      stockMovements,
-      mostConsumedItems,
-      consumptionTrend,
-      ingredientCostEvolution,
-      menuItemCostEvolution,
-      inventoryValue,
+      meta: {
+        generatedAt: new Date(),
+        period: {
+          startDate: dto.startDate,
+          endDate: dto.endDate,
+        },
+      },
+      data: {
+        stockMovements,
+        mostConsumedItems,
+        consumptionTrend,
+        ingredientCostEvolution,
+        menuItemCostEvolution,
+        inventoryValue,
+        consumptionVsCost,
+        theoreticalMenuCost,
+        detailedCostAnalysis,
+      },
     };
   }
 }
