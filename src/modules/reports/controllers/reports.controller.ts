@@ -65,6 +65,13 @@ export class ReportsController {
     return this.reportsService.getMenuItemConsumptionCostEvolution(dto, tenantId);
   }
 
+  @Get('theoretical-menu-cost')
+  @Roles('company_admin', 'kitchen_admin')
+  @ApiOperation({ summary: 'Obtener reporte de Costo Unitario Teórico del Menú' })
+  getTheoreticalMenuCostReport(@Tenant() tenantId: number) {
+    return this.reportsService.getTheoreticalMenuCostReport(tenantId);
+  }
+
   @Get('inventory-value')
   @Roles('company_admin', 'kitchen_admin')
   @ApiOperation({ summary: 'Obtener valor actual del inventario (costo)' })
@@ -81,4 +88,15 @@ export class ReportsController {
   ) {
     return this.reportsService.getGeneralReport(dto, tenantId);
   }
+
+  @Get('consumption-vs-cost')
+  @Roles('company_admin', 'kitchen_admin')
+  @ApiOperation({ summary: 'Obtener reporte de Consumo vs. Costo' })
+  getConsumptionVsCostReport(
+    @Query(new ValidationPipe({ transform: true })) dto: GetStockMovementsReportDto,
+    @Tenant() tenantId: number,
+  ) {
+    return this.reportsService.getConsumptionVsCostReport(dto, tenantId);
+  }
+
 }
