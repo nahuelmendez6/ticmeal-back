@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "module": "commonjs", // ⬅️ Cambiar de nodenext a commonjs para NestJS
+    "module": "commonjs",
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
@@ -9,7 +9,7 @@
     "target": "ES2021",
     "sourceMap": true,
     "outDir": "./dist",
-    "rootDir": "./src",   // ⬅️ Forzar que el origen sea solo lo que está en src
+    "rootDir": ".", 
     "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
@@ -18,5 +18,7 @@
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false
-  }
+  },
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["node_modules", "dist"]
 }
