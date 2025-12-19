@@ -19,6 +19,7 @@ import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
 import { Roles } from 'src/modules/auth/decorators/roles.decorators';
 import { Tenant } from 'src/common/decorators/tenant-decorator';
+import { Public } from 'src/common/decorators/public.decorator';
 import type { Request } from 'express';
 
 @ApiTags('Shifts')
@@ -27,6 +28,7 @@ export class ShiftController {
   constructor(private readonly shiftService: ShiftService) {}
 
   // --- RUTA PÚBLICA (Sin Guards) ---
+  @Public()
   @Get('active-by-hour/:tenantId')
   @ApiOperation({
     summary: 'Obtener el turno activo según la hora local GMT-3 (PÚBLICO)',
