@@ -18,17 +18,44 @@ import { UpdateShiftDto } from '../dto/update-shift.dto';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
 import { Roles } from 'src/modules/auth/decorators/roles.decorators';
-import { Public } from '../../../common/decorators/public.decorator';
 import { Tenant } from 'src/common/decorators/tenant-decorator';
 import type { Request } from 'express';
 
-@ApiBearerAuth()
 @ApiTags('Shifts')
-@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('shifts')
 export class ShiftController {
   constructor(private readonly shiftService: ShiftService) {}
 
+  // --- RUTA PÚBLICA (Sin Guards) ---
+  @Get('active-by-hour/:tenantId')
+  @ApiOperation({
+    summary: 'Obtener el turno activo según la hora local GMT-3 (PÚBLICO)',
+  })
+  async findActiveByCurrentHour(
+    @Param('tenantId', ParseIntPipe) tenantId: number,
+  ) {
+    if (!tenantId) {
+      throw new ForbiddenException('No se pudo determinar la empresa.');
+    }
+
+    // Forzamos GMT-3 (Argentina/Chile/Uruguay) sin importar la hora del servidor Render
+    const options = {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      hour: '2-digit' as const,
+      minute: '2-digit' as const,
+      second: '2-digit' as const,
+      hour12: false,
+    };
+
+    const hour = new Intl.DateTimeFormat('es-AR', options).format(new Date());
+
+    return this.shiftService.findActiveShiftByHourForTenant(tenantId, hour);
+  }
+
+  // --- RUTAS PROTEGIDAS (Requieren Token y Roles) ---
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Post()
   @ApiOperation({ summary: 'Crear un nuevo turno' })
   @Roles('company_admin', 'kitchen_admin', 'super_admin')
@@ -42,64 +69,33 @@ export class ShiftController {
     return this.shiftService.create(createShiftDto, tenantId);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Get()
   @ApiOperation({ summary: 'Obtener todos los turnos de la empresa' })
   @Roles('company_admin', 'kitchen_admin', 'diner', 'super_admin')
   async findAll(@Tenant() tenantId: number, @Req() req: Request) {
     const user: any = req.user;
-
-    // Un super_admin podría tener una lógica diferente, pero por ahora,
-    // se asume que opera en el contexto de un tenant si está definido.
     if (user.role === 'super_admin' && !tenantId) {
-      // Aquí se podría implementar una lógica para listar todos los turnos de todas las empresas.
-      // Por ahora, lanzamos un error si no hay un tenantId.
-      throw new ForbiddenException(
-        'Super admin debe operar en el contexto de una empresa.',
-      );
+      throw new ForbiddenException('Super admin debe operar en el contexto de una empresa.');
     }
-
     if (!tenantId) {
       throw new ForbiddenException('No se pudo determinar la empresa.');
     }
-
     return this.shiftService.findAllForTenant(tenantId);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('menu-active')
   @ApiOperation({ summary: 'Obtener todos los turnos activos de la empresa' })
   @Roles('company_admin', 'kitchen_admin', 'diner', 'super_admin')
-  async findActives(@Tenant() tenantId: number, @Req() req: Request) {
-    const user: any = req.user;
-
+  async findActives(@Tenant() tenantId: number) {
     return this.shiftService.findActivesShiftForTenant(tenantId);
   }
 
-  @Public() // <--- IMPORTANTE: Si usas Guards globales, esto libera la ruta
-  @Get('active-by-hour/:tenantId') // <--- Agregamos el ID a la URL para que sea rastreable sin token
-  @ApiOperation({
-    summary: 'Obtener el turno activo según la hora local GMT-3 (PÚBLICO)',
-  })
-  async findActiveByCurrentHour(
-    @Param('tenantId', ParseIntPipe) tenantId: number // <--- Obtenemos el ID de la URL
-  ) {
-    if (!tenantId) {
-      throw new ForbiddenException('No se pudo determinar la empresa.');
-    }
-
-    // Configuración para forzar GMT-3 sin importar el servidor
-    const options = {
-      timeZone: 'America/Argentina/Buenos_Aires', // Ajusta a tu zona: America/Santiago, etc.
-      hour: '2-digit' as const,
-      minute: '2-digit' as const,
-      second: '2-digit' as const,
-      hour12: false,
-    };
-
-    const hour = new Intl.DateTimeFormat('es-AR', options).format(new Date());
-
-    return this.shiftService.findActiveShiftByHourForTenant(tenantId, hour);
-  }
-
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Get(':id')
   @ApiOperation({ summary: 'Obtener un turno por ID' })
   @Roles('company_admin', 'kitchen_admin', 'diner', 'super_admin')
@@ -109,16 +105,14 @@ export class ShiftController {
     @Req() req: Request,
   ) {
     const user: any = req.user;
-
-    // El super_admin puede ver cualquier turno, pero el servicio ya filtra por tenant.
-    // Para permitirle ver CUALQUIER turno, necesitaríamos un método en el servicio sin filtro de tenant.
     if (!tenantId && user.role !== 'super_admin') {
       throw new ForbiddenException('No se pudo determinar la empresa.');
     }
-
     return this.shiftService.findOneForTenant(id, tenantId);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Patch(':id')
   @ApiOperation({ summary: 'Actualizar un turno por ID' })
   @Roles('company_admin', 'kitchen_admin', 'super_admin')
@@ -129,14 +123,14 @@ export class ShiftController {
     @Req() req: Request,
   ) {
     const user: any = req.user;
-
     if (!tenantId && user.role !== 'super_admin') {
       throw new ForbiddenException('No se pudo determinar la empresa.');
     }
-
     return this.shiftService.update(id, updateShiftDto, tenantId);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Delete(':id')
   @ApiOperation({ summary: 'Eliminar un turno por ID' })
   @Roles('company_admin', 'kitchen_admin', 'super_admin')
@@ -146,11 +140,9 @@ export class ShiftController {
     @Req() req: Request,
   ) {
     const user: any = req.user;
-
     if (!tenantId && user.role !== 'super_admin') {
       throw new ForbiddenException('No se pudo determinar la empresa.');
     }
-
     await this.shiftService.remove(id, tenantId);
     return {
       message: `El turno con ID #${id} ha sido eliminado correctamente.`,
