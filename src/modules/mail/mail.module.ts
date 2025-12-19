@@ -7,7 +7,7 @@ import { MailService } from './services/mail.service';
 
 @Module({
   imports: [
-    ConfigModule, // Asegúrate de importar ConfigModule globalmente en AppModule si no lo hiciste
+    ConfigModule,
     MailerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -15,18 +15,26 @@ import { MailService } from './services/mail.service';
         transport: {
           host: config.get<string>('MAIL_HOST', 'smtp.gmail.com'),
           port: config.get<number>('MAIL_PORT', 587),
-          secure: false, // true para 465, false para 587
+          secure: false, // TLS
           auth: {
             user: config.get<string>('MAIL_USER'),
-            pass: config.get<string>('MAIL_PASS'),
+            pass: config.get<string>('MAIL_PASS'), // RECUERDA: Sin espacios
           },
+          // AGREGAR ESTO: Ayuda a evitar el ETIMEDOUT en Render
+          tls: {
+            rejectUnauthorized: false, 
+          },
+          connectionTimeout: 10000, // 10 segundos
+          greetingTimeout: 10000,
         },
         defaults: {
           from: `"TicMeal" <${config.get<string>('MAIL_USER')}>`,
         },
         template: {
-          dir: join(process.cwd(), 'src/modules/mail/templates'), // Ruta absoluta a src
-          adapter: new HandlebarsAdapter(), // Handlebars
+          // CAMBIO IMPORTANTE PARA PRODUCCIÓN:
+          // En Render/Linux, 'dist' es la carpeta de ejecución, no 'src'.
+          dir: join(process.cwd(), 'dist/modules/mail/templates'), 
+          adapter: new HandlebarsAdapter(),
           options: {
             strict: true,
           },
