@@ -14,18 +14,19 @@ import { MailService } from './services/mail.service';
       useFactory: async (config: ConfigService) => ({
         transport: {
           host: config.get<string>('MAIL_HOST', 'smtp.gmail.com'),
-          port: config.get<number>('MAIL_PORT', 587),
-          secure: false, // TLS
+          port: 587,
+          secure: false, // Debe ser false para STARTTLS
           auth: {
             user: config.get<string>('MAIL_USER'),
-            pass: config.get<string>('MAIL_PASS'), // RECUERDA: Sin espacios
+            pass: config.get<string>('MAIL_PASS'), // Tu código de 16 letras sin espacios
           },
-          // AGREGAR ESTO: Ayuda a evitar el ETIMEDOUT en Render
+          // --- ESTO ES LO QUE FALTA ---
           tls: {
-            rejectUnauthorized: false, 
+            rejectUnauthorized: false, // Ignora errores de certificado comunes en Docker/Render
+            ciphers: 'SSLv3',         // Fuerza compatibilidad
           },
-          connectionTimeout: 10000, // 10 segundos
-          greetingTimeout: 10000,
+          connectionTimeout: 20000,   // Sube a 20 segundos
+          greetingTimeout: 20000,
         },
         defaults: {
           from: `"TicMeal" <${config.get<string>('MAIL_USER')}>`,
