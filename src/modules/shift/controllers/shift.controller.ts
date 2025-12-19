@@ -18,6 +18,7 @@ import { UpdateShiftDto } from '../dto/update-shift.dto';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
 import { Roles } from 'src/modules/auth/decorators/roles.decorators';
+import { Public } from '../../../common/decorators/public.decorator';
 import { Tenant } from 'src/common/decorators/tenant-decorator';
 import type { Request } from 'express';
 
@@ -73,18 +74,28 @@ export class ShiftController {
     return this.shiftService.findActivesShiftForTenant(tenantId);
   }
 
-  @Get('active-by-hour')
+  @Public() // <--- IMPORTANTE: Si usas Guards globales, esto libera la ruta
+  @Get('active-by-hour/:tenantId') // <--- Agregamos el ID a la URL para que sea rastreable sin token
   @ApiOperation({
-    summary: 'Obtener el turno activo según la hora actual del servidor',
+    summary: 'Obtener el turno activo según la hora local GMT-3 (PÚBLICO)',
   })
-  @Roles('company_admin', 'kitchen_admin', 'diner', 'super_admin')
-  async findActiveByCurrentHour(@Tenant() tenantId: number) {
+  async findActiveByCurrentHour(
+    @Param('tenantId', ParseIntPipe) tenantId: number // <--- Obtenemos el ID de la URL
+  ) {
     if (!tenantId) {
       throw new ForbiddenException('No se pudo determinar la empresa.');
     }
-    // Obtiene la hora actual del servidor
-    const now = new Date();
-    const hour = now.toTimeString().split(' ')[0];
+
+    // Configuración para forzar GMT-3 sin importar el servidor
+    const options = {
+      timeZone: 'America/Argentina/Buenos_Aires', // Ajusta a tu zona: America/Santiago, etc.
+      hour: '2-digit' as const,
+      minute: '2-digit' as const,
+      second: '2-digit' as const,
+      hour12: false,
+    };
+
+    const hour = new Intl.DateTimeFormat('es-AR', options).format(new Date());
 
     return this.shiftService.findActiveShiftByHourForTenant(tenantId, hour);
   }
