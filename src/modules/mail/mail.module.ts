@@ -25,7 +25,10 @@ import { MailService } from './services/mail.service';
             rejectUnauthorized: false,
             minVersion: 'TLSv1.2'
           },
-          connectionTimeout: 10000, // 10 segundos es suficiente si la ruta está abierta
+          connectionTimeout: 20000, // Aumenta a 20 segundos
+          greetingTimeout: 20000,
+          socketTimeout: 20000,
+          dnsV4_only: true, // 10 segundos es suficiente si la ruta está abierta
         },
         defaults: {
           from: `"TicMeal" <${config.get<string>('MAIL_USER')}>`,
