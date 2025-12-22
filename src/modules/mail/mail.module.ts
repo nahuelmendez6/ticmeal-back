@@ -14,8 +14,8 @@ import { MailService } from './services/mail.service';
 useFactory: async (config: ConfigService) => ({
         transport: {
           host: config.get<string>('MAIL_HOST', 'smtp.resend.com'),
-          port: 465,
-          secure: true, 
+          port: 587,
+          secure: false, 
           auth: {
             user: 'resend',
             pass: config.get<string>('MAIL_PASS'), 
