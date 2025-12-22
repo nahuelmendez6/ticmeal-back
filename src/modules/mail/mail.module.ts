@@ -11,32 +11,33 @@ import { MailService } from './services/mail.service';
     MailerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (config: ConfigService) => {
-        return {
-          transport: {
-            host: 'smtp.gmail.com',
-            port: 587,
-            secure: false, // Obligatorio para puerto 587
-            auth: {
-              user: config.get<string>('MAIL_USER'),
-              pass: config.get<string>('MAIL_PASS'),
-            },
-            tls: {
-              rejectUnauthorized: false, // Ayuda a evitar el timeout en servidores remotos
-            },
+      useFactory: async (config: ConfigService) => ({
+        transport: {
+          host: 'smtp.gmail.com',
+          port: 465,               // Cambiamos a 465
+          secure: true,            // TRUE para puerto 465
+          auth: {
+            user: config.get<string>('MAIL_USER'),
+            pass: config.get<string>('MAIL_PASS'), // La clave de 16 letras de Google
           },
-          defaults: {
-            from: `"TicMeal" <${config.get<string>('MAIL_USER')}>`,
+          tls: {
+            // Esto es vital en Render para evitar que el firewall corte la conexión
+            rejectUnauthorized: false,
+            minVersion: 'TLSv1.2'
           },
-          template: {
-            dir: join(process.cwd(), 'dist/modules/mail/templates'), 
-            adapter: new HandlebarsAdapter(),
-            options: {
-              strict: true,
-            },
+          connectionTimeout: 10000, // 10 segundos es suficiente si la ruta está abierta
+        },
+        defaults: {
+          from: `"TicMeal" <${config.get<string>('MAIL_USER')}>`,
+        },
+        template: {
+          dir: join(process.cwd(), 'dist/modules/mail/templates'),
+          adapter: new HandlebarsAdapter(),
+          options: {
+            strict: true,
           },
-        };
-      },
+        },
+      }),
     }),
   ],
   providers: [MailService],
