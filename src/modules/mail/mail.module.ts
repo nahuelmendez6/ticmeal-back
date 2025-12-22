@@ -11,29 +11,28 @@ import { MailService } from './services/mail.service';
     MailerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (config: ConfigService) => ({
+useFactory: async (config: ConfigService) => ({
         transport: {
           host: config.get<string>('MAIL_HOST', 'smtp.resend.com'),
           port: 465,
-          secure: false, // Debe ser false para STARTTLS
+          secure: true, 
           auth: {
-            user: config.get<string>('MAIL_USER'),
-            pass: config.get<string>('MAIL_PASS'), // Tu código de 16 letras sin espacios
+            user: 'resend',
+            pass: config.get<string>('MAIL_PASS'), 
           },
-          // --- ESTO ES LO QUE FALTA ---
           tls: {
-            rejectUnauthorized: false, // Ignora errores de certificado comunes en Docker/Render
-            ciphers: 'SSLv3',         // Fuerza compatibilidad
+            rejectUnauthorized: false,
+            // Eliminamos SSLv3 para usar TLS moderno que requiere Resend
           },
-          connectionTimeout: 20000,   // Sube a 20 segundos
+          connectionTimeout: 20000,
           greetingTimeout: 20000,
         },
         defaults: {
-          from: `"TicMeal" <${config.get<string>('MAIL_USER')}>`,
+          // IMPORTANTE: Asegúrate que MAIL_FROM en Render sea 'onboarding@resend.dev' 
+          // o tu dominio verificado. No uses 'resend' aquí.
+          from: `"TicMeal" <${config.get<string>('MAIL_FROM', 'onboarding@resend.dev')}>`,
         },
         template: {
-          // CAMBIO IMPORTANTE PARA PRODUCCIÓN:
-          // En Render/Linux, 'dist' es la carpeta de ejecución, no 'src'.
           dir: join(process.cwd(), 'dist/modules/mail/templates'), 
           adapter: new HandlebarsAdapter(),
           options: {
