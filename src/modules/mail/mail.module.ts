@@ -12,32 +12,21 @@ import { MailService } from './services/mail.service';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (config: ConfigService) => {
-        // --- BLOQUE DE LOGS DE DEPURACIÓN ---
-        console.log('=== DEBUG MAIL CONFIGURATION ===');
-        console.log('MAIL_HOST:', config.get('MAIL_HOST'));
-        console.log('MAIL_PORT:', config.get('MAIL_PORT'));
-        console.log('MAIL_FROM:', config.get('MAIL_FROM'));
-        console.log('PASS_PREFIX:', config.get('MAIL_PASS')?.substring(0, 5) + '...'); 
-        console.log('=================================');
-
         return {
           transport: {
-            // Usamos los valores directamente del config
-            host: config.get<string>('MAIL_HOST', 'smtp.resend.com'),
+            host: 'smtp.gmail.com',
             port: 587,
-            secure: false, 
+            secure: false, // Obligatorio para puerto 587
             auth: {
-              user: 'resend',
-              pass: config.get<string>('MAIL_PASS'), 
+              user: config.get<string>('MAIL_USER'),
+              pass: config.get<string>('MAIL_PASS'),
             },
             tls: {
-              rejectUnauthorized: false,
+              rejectUnauthorized: false, // Ayuda a evitar el timeout en servidores remotos
             },
-            connectionTimeout: 20000,
-            greetingTimeout: 20000,
           },
           defaults: {
-            from: `"TicMeal" <${config.get<string>('MAIL_FROM', 'onboarding@resend.dev')}>`,
+            from: `"TicMeal" <${config.get<string>('MAIL_USER')}>`,
           },
           template: {
             dir: join(process.cwd(), 'dist/modules/mail/templates'), 
