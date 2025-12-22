@@ -13,8 +13,8 @@ import { MailService } from './services/mail.service';
       inject: [ConfigService],
       useFactory: async (config: ConfigService) => ({
         transport: {
-          host: config.get<string>('MAIL_HOST', 'smtp.gmail.com'),
-          port: 587,
+          host: config.get<string>('MAIL_HOST', 'smtp.resend.com'),
+          port: 465,
           secure: false, // Debe ser false para STARTTLS
           auth: {
             user: config.get<string>('MAIL_USER'),
