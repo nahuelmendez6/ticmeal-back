@@ -30,6 +30,7 @@ import { MealShiftController } from './controllers/meal-shift.controller';
       IngredientCategory,
       RecipeIngredient,
       StockMovement,
+      MealShift
     ]),
   ],
   providers: [
