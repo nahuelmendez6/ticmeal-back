@@ -11,7 +11,8 @@ export class MealShiftController {
   create(@Body() createMealShiftDto: CreateMealShiftDto, @Request() req) {
     // Asumimos que el guard de autenticación popula req.user con companyId
     const companyId = req.user?.companyId;
-    return this.mealShiftService.create(createMealShiftDto, companyId);
+    const userId = req.user?.id;
+    return this.mealShiftService.create(createMealShiftDto, companyId, userId);
   }
 
   @Get()
