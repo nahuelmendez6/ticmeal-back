@@ -50,7 +50,7 @@ export class MealShiftService {
         movementType: MovementType.IN,
         reason: 'PRODUCCION',
         unit: 'unit' as any,
-        companyId,
+        company: { id: companyId },
         performedBy: userId ? { id: userId } : null,
       });
       await queryRunner.manager.save(menuItemMovement);
@@ -71,7 +71,7 @@ export class MealShiftService {
             movementType: MovementType.OUT,
             reason: 'PRODUCCION',
             unit: ingredient.unit,
-            companyId,
+            company: { id: companyId },
             performedBy: userId ? { id: userId } : null,
           });
           await queryRunner.manager.save(ingredientMovement);
