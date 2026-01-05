@@ -12,12 +12,14 @@ import { IngredientCategoryService } from './services/ingredient-category.servic
 import { IngredientService } from './services/ingredient.service';
 import { MenuItemService } from './services/menu-item.service';
 import { RecipeIngredientService } from './services/recipe-ingredient.service';
-
+import { MealShift } from '../stock/entities/meal-shift.entity';
+import { MealShiftService } from './services/meal-shift.service';
 import { CategoryController } from './controllers/category.controller';
 import { IngredientCategoryController } from './controllers/ingredient-category.controller';
 import { IngredientController } from './controllers/ingredient.controller';
 import { MenuItemController } from './controllers/menu-item.controller';
 import { RecipeIngredientController } from './controllers/recipe-ingredient.controller';
+import { MealShiftController } from './controllers/meal-shift.controller';
 
 @Module({
   imports: [
@@ -36,6 +38,7 @@ import { RecipeIngredientController } from './controllers/recipe-ingredient.cont
     IngredientService,
     MenuItemService,
     RecipeIngredientService,
+    MealShiftService,
   ],
   controllers: [
     CategoryController,
@@ -43,6 +46,7 @@ import { RecipeIngredientController } from './controllers/recipe-ingredient.cont
     IngredientController,
     MenuItemController,
     RecipeIngredientController,
+    MealShiftController
   ],
   exports: [
     TypeOrmModule,
