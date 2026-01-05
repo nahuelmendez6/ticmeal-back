@@ -28,9 +28,9 @@ export class StockMovement extends BaseTenantEntity { // <-- AHORA EXTIENDE Base
   @JoinColumn({ name: 'ingredientId' })
   ingredient: Ingredient | null;
 
-  @ManyToOne(() => MealShift, { nullable: true })
-  @JoinColumn({ name: 'mealShiftId' })
-  mealShift: MealShift | null;
+  // @ManyToOne(() => MealShift, { nullable: true })
+  // @JoinColumn({ name: 'mealShiftId' })
+  // mealShift: MealShift | null;
 
   /** Cantidad involucrada. */
   @Column({ type: 'float' })
