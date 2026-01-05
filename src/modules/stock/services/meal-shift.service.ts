@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, QueryRunner } from 'typeorm';
 import { MealShift } from '../entities/meal-shift.entity';
 import { CreateMealShiftDto } from '../dto/create-meal-shift.dto';
 import { UpdateMealShiftDto } from '../dto/update-meal-shift.dto';
@@ -60,27 +60,7 @@ export class MealShiftService {
       await queryRunner.manager.save(menuItem);
 
       // 4. Registrar movimientos de stock para los ingredientes (PRODUCCION -> OUT)
-      if (menuItem.recipeIngredients && menuItem.recipeIngredients.length > 0) {
-        for (const recipeIngredient of menuItem.recipeIngredients) {
-          const ingredient = recipeIngredient.ingredient;
-          const quantityRequired = recipeIngredient.quantity * quantityProduced;
-
-          const ingredientMovement = queryRunner.manager.create(StockMovement, {
-            ingredient,
-            quantity: quantityRequired,
-            movementType: MovementType.OUT,
-            reason: 'PRODUCCION',
-            unit: ingredient.unit,
-            company: { id: companyId },
-            performedBy: userId ? { id: userId } : null,
-          });
-          await queryRunner.manager.save(ingredientMovement);
-
-          // Actualizar stock del ingrediente
-          ingredient.quantityInStock = (ingredient.quantityInStock || 0) - quantityRequired;
-          await queryRunner.manager.save(ingredient);
-        }
-      }
+      await this.deductIngredientsStock(queryRunner, menuItem, quantityProduced, companyId, userId);
 
       await queryRunner.commitTransaction();
       return savedMealShift;
@@ -89,6 +69,35 @@ export class MealShiftService {
       throw err;
     } finally {
       await queryRunner.release();
+    }
+  }
+
+  private async deductIngredientsStock(
+    queryRunner: QueryRunner,
+    menuItem: MenuItems,
+    quantityProduced: number,
+    companyId: number,
+    userId?: number,
+  ) {
+    if (menuItem.recipeIngredients && menuItem.recipeIngredients.length > 0) {
+      for (const recipeIngredient of menuItem.recipeIngredients) {
+        const ingredient = recipeIngredient.ingredient;
+        const quantityRequired = recipeIngredient.quantity * quantityProduced;
+
+        const ingredientMovement = queryRunner.manager.create(StockMovement, {
+          ingredient,
+          quantity: quantityRequired,
+          movementType: MovementType.OUT,
+          reason: 'PRODUCCION',
+          unit: ingredient.unit,
+          company: { id: companyId },
+          performedBy: userId ? { id: userId } : null,
+        });
+        await queryRunner.manager.save(ingredientMovement);
+
+        // Actualizar stock del ingrediente
+        await queryRunner.manager.decrement(Ingredient, { id: ingredient.id }, 'quantityInStock', quantityRequired);
+      }
     }
   }
 
