@@ -49,6 +49,9 @@ export class MenuItems extends BaseTenantEntity {
     @Column({ type: 'int', nullable: true })
     minStock: number | null;
 
+    @Column({ type: 'boolean', default: false })
+    isCooked: boolean;
+
     @Column({ type: 'boolean', default: true })
     isActive: boolean;
 

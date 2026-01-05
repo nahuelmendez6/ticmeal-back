@@ -4,6 +4,7 @@ import { BaseTenantEntity } from 'src/common/entities/base-tenant.entity';
 
 import { MenuItems } from './menu-items.entity';
 import { Ingredient } from './ingredient.entity';
+import { MealShift } from './meal-shift.entity';
 import { MovementType, IngredientUnit } from '../enums/enums';
 import { User } from 'src/modules/users/entities/user.entity';
 
@@ -26,6 +27,10 @@ export class StockMovement extends BaseTenantEntity { // <-- AHORA EXTIENDE Base
   })
   @JoinColumn({ name: 'ingredientId' })
   ingredient: Ingredient | null;
+
+  @ManyToOne(() => MealShift, { nullable: true })
+  @JoinColumn({ name: 'mealShiftId' })
+  mealShift: MealShift | null;
 
   /** Cantidad involucrada. */
   @Column({ type: 'float' })
