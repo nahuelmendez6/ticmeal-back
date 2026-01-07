@@ -14,6 +14,8 @@ export class MealShiftService {
   constructor(
     @InjectRepository(MealShift)
     private readonly mealShiftRepository: Repository<MealShift>,
+    @InjectRepository(StockMovement)
+    private readonly stockMovementRepository: Repository<StockMovement>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -44,7 +46,7 @@ export class MealShiftService {
       const savedMealShift = await queryRunner.manager.save(mealShift);
 
       // 3. Registrar movimiento de stock para el MenuItem (PRODUCCION -> IN)
-      const menuItemMovement = queryRunner.manager.create(StockMovement, {
+      const menuItemMovement = this.stockMovementRepository.create({
         menuItem,
         quantity: quantityProduced,
         movementType: MovementType.IN,
@@ -84,19 +86,19 @@ export class MealShiftService {
         const ingredient = recipeIngredient.ingredient;
         const quantityRequired = recipeIngredient.quantity * quantityProduced;
 
-        const ingredientMovement = queryRunner.manager.create(StockMovement, {
+        // Actualizar stock del ingrediente
+        await queryRunner.manager.decrement(Ingredient, { id: ingredient.id }, 'quantityInStock', quantityRequired);
+
+        const ingredientMovement = this.stockMovementRepository.create({
           ingredient,
           quantity: quantityRequired,
           movementType: MovementType.OUT,
-          reason: 'PRODUCCION',
+          reason: 'meal',
           unit: ingredient.unit,
           company: { id: companyId },
           performedBy: userId ? { id: userId } : null,
         });
         await queryRunner.manager.save(ingredientMovement);
-
-        // Actualizar stock del ingrediente
-        await queryRunner.manager.decrement(Ingredient, { id: ingredient.id }, 'quantityInStock', quantityRequired);
       }
     }
   }

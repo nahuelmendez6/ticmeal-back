@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, AfterLoad, BeforeUpdate } from 'typeorm';
 import { BaseTenantEntity } from 'src/common/entities/base-tenant.entity';
 import { MenuItems } from './menu-items.entity';
 // Verify this path matches your Shift entity location
@@ -31,4 +31,23 @@ export class MealShift extends BaseTenantEntity {
 
   @Column({ type: 'float', default: 0 })
   quantityAvailable: number;
+
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
+
+  private originalQuantityProduced: number;
+
+  @AfterLoad()
+  setOriginalQuantityProduced() {
+    this.originalQuantityProduced = this.quantityProduced;
+  }
+
+  @BeforeUpdate()
+  updateQuantityAvailable() {
+    if (this.originalQuantityProduced !== undefined && this.quantityProduced !== this.originalQuantityProduced) {
+      const diff = this.quantityProduced - this.originalQuantityProduced;
+      this.quantityAvailable = (this.quantityAvailable || 0) + diff;
+      this.originalQuantityProduced = this.quantityProduced;
+    }
+  }
 }

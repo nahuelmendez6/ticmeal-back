@@ -1,4 +1,4 @@
-import { IsDateString, IsInt, IsNumber, IsOptional, Min } from 'class-validator';
+import { IsBoolean, IsDateString, IsInt, IsNumber, IsOptional, Min } from 'class-validator';
 
 export class CreateMealShiftDto {
   @IsDateString()
@@ -18,4 +18,8 @@ export class CreateMealShiftDto {
   @Min(0)
   @IsOptional()
   quantityAvailable?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
 }
