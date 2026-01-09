@@ -8,14 +8,16 @@ export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
   constructor(private configService: ConfigService) {
     const secret = configService.get<string>('JWT_ADMIN_SECRET');
     if (!secret) {
-      throw new Error('JWT_ADMIN_SECRET no está definido en las variables de entorno');
+      throw new Error(
+        'JWT_ADMIN_SECRET no está definido en las variables de entorno',
+      );
     }
 
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: secret,
-    })
+    });
   }
 
   async validate(payload: any) {
@@ -24,8 +26,12 @@ export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
       throw new UnauthorizedException('Token no válido para backoffice');
     }
 
-    // Retornamos el usuario adjunto al request. 
+    // Retornamos el usuario adjunto al request.
     // payload.roles debe venir en el token firmado al hacer login.
-    return { userId: payload.sub, username: payload.username, roles: payload.roles };
+    return {
+      userId: payload.sub,
+      username: payload.username,
+      roles: payload.roles,
+    };
   }
 }

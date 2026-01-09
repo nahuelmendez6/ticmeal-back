@@ -1,4 +1,11 @@
-import { IsEmail, IsString, MinLength, IsEnum, IsOptional, IsArray } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  MinLength,
+  IsEnum,
+  IsOptional,
+  IsArray,
+} from 'class-validator';
 import { AdminRole } from './admin-role.enum';
 
 export class CreateAdminDto {

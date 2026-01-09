@@ -44,7 +44,6 @@ export enum MenuItemCategory {
   OTHER = 'other',
 }
 
-
 /**
  * Mapea choices de la unidad de medida de Ingredient
  */
@@ -55,7 +54,6 @@ export enum IngredientUnit {
   MILLILITERS = 'ml',
   LITERS = 'l',
 }
-
 
 /**
  * Mapea los choices del tipo de costo de Ingredient de Django.

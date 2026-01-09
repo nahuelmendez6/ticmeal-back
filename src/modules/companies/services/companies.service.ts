@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Company } from '../entities/company.entity';
@@ -31,7 +35,11 @@ export class CompaniesService {
   async update(id: number, dto: UpdateCompanyDto): Promise<Company> {
     const company = await this.findById(id);
     if (dto.name || dto.taxId) {
-      await this.ensureUnique(dto.name ?? company.name, dto.taxId ?? company.taxId, id);
+      await this.ensureUnique(
+        dto.name ?? company.name,
+        dto.taxId ?? company.taxId,
+        id,
+      );
     }
     Object.assign(company, dto);
     return this.companyRepo.save(company);
@@ -44,7 +52,8 @@ export class CompaniesService {
   }
 
   private async ensureUnique(name: string, taxId: string, excludeId?: number) {
-    const qb = this.companyRepo.createQueryBuilder('c')
+    const qb = this.companyRepo
+      .createQueryBuilder('c')
       .where('(c.name = :name OR c.taxId = :taxId)', { name, taxId });
     if (excludeId) qb.andWhere('c.id != :excludeId', { excludeId });
     const exists = await qb.getOne();

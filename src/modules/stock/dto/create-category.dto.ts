@@ -1,7 +1,6 @@
 import { IsOptional, IsString, IsUUID, Length } from 'class-validator';
 
 export class CreateCategoryDto {
-  
   /** Tenant ID o null para categoría global */
   @IsOptional()
   @IsUUID()

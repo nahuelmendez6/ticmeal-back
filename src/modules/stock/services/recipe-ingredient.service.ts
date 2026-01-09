@@ -84,7 +84,10 @@ export class RecipeIngredientService {
     companyId: number,
   ): Promise<RecipeIngredient[]> {
     // Validar que el MenuItem pertenece al tenant
-    const menuItem = await this.menuItemRepo.findOneBy({ id: menuItemId, companyId });
+    const menuItem = await this.menuItemRepo.findOneBy({
+      id: menuItemId,
+      companyId,
+    });
     if (!menuItem) {
       throw new NotFoundException(
         `El ítem de menú con ID ${menuItemId} no fue encontrado en su empresa.`,
@@ -123,7 +126,10 @@ export class RecipeIngredientService {
   /**
    * Elimina un ingrediente de una receta.
    */
-  async removeIngredientFromRecipe(id: number, companyId: number): Promise<void> {
+  async removeIngredientFromRecipe(
+    id: number,
+    companyId: number,
+  ): Promise<void> {
     const result = await this.recipeIngredientRepo.delete({
       id,
       menuItem: { companyId },

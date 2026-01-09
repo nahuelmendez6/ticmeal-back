@@ -3,17 +3,17 @@ import { BaseTenantEntity } from '../entities/base-tenant.entity';
 
 /**
  * Clase helper para trabajar con repositorios multi-tenant.
- * 
+ *
  * No extiende Repository directamente porque TypeORM en NestJS requiere
  * que los repositorios se creen a través de TypeOrmModule.forFeature().
- * 
+ *
  * En su lugar, proporciona métodos helper estáticos que se pueden usar
  * con cualquier repositorio que trabaje con entidades que extiendan BaseTenantEntity.
  */
 export class TenantAwareRepository {
   /**
    * Aplica el filtro de tenant a un QueryBuilder existente.
-   * 
+   *
    * @param qb - QueryBuilder de TypeORM
    * @param companyId - ID de la compañía (tenant)
    * @param alias - Alias de la tabla en la consulta (default: 'entity')
@@ -29,7 +29,7 @@ export class TenantAwareRepository {
 
   /**
    * Crea un QueryBuilder con filtro de tenant aplicado.
-   * 
+   *
    * @param repo - Repositorio de TypeORM
    * @param companyId - ID de la compañía (tenant)
    * @param alias - Alias de la tabla en la consulta (default: 'entity')
@@ -46,7 +46,7 @@ export class TenantAwareRepository {
 
   /**
    * Busca una entidad por ID verificando que pertenezca al tenant.
-   * 
+   *
    * @param repo - Repositorio de TypeORM
    * @param id - ID de la entidad
    * @param companyId - ID de la compañía (tenant)
@@ -66,7 +66,7 @@ export class TenantAwareRepository {
 
   /**
    * Busca todas las entidades de un tenant.
-   * 
+   *
    * @param repo - Repositorio de TypeORM
    * @param companyId - ID de la compañía (tenant)
    * @param alias - Alias de la tabla (default: 'entity')
@@ -82,7 +82,7 @@ export class TenantAwareRepository {
 
   /**
    * Verifica si una entidad pertenece al tenant.
-   * 
+   *
    * @param repo - Repositorio de TypeORM
    * @param id - ID de la entidad
    * @param companyId - ID de la compañía (tenant)
@@ -99,4 +99,3 @@ export class TenantAwareRepository {
     return entity !== null;
   }
 }
-

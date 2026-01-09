@@ -13,7 +13,6 @@ import {
 import { IngredientUnit, IngredientCostType } from '../enums/enums';
 
 export class CreateIngredientDto {
-
   /** Tenant (heredado de BaseTenantEntity) */
   @IsOptional()
   @IsNumber()

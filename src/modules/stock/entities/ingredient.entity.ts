@@ -17,7 +17,6 @@ import { IngredientCategory } from './ingredient-category.entity';
 @Entity('ingredients')
 @Index(['companyId', 'name'], { unique: true })
 export class Ingredient extends BaseTenantEntity {
-
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -47,9 +46,9 @@ export class Ingredient extends BaseTenantEntity {
 
   // Relación ManyToOne con la entidad Category
   @ManyToOne(() => IngredientCategory, (category) => category.menuItems, {
-      nullable: true,
-      onDelete: 'SET NULL', 
-      eager: true, // Cargar la categoría automáticamente al consultar el MenuItem
+    nullable: true,
+    onDelete: 'SET NULL',
+    eager: true, // Cargar la categoría automáticamente al consultar el MenuItem
   })
   category: IngredientCategory | null;
 
@@ -58,7 +57,10 @@ export class Ingredient extends BaseTenantEntity {
   minStock: number | null;
 
   // Relaciones
-  @OneToMany(() => RecipeIngredient, (recipeIngredient) => recipeIngredient.ingredient)
+  @OneToMany(
+    () => RecipeIngredient,
+    (recipeIngredient) => recipeIngredient.ingredient,
+  )
   recipeIngredients: RecipeIngredient[];
 
   @OneToMany(() => StockMovement, (movement) => movement.ingredient)
@@ -66,6 +68,4 @@ export class Ingredient extends BaseTenantEntity {
 
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
-
-
 }

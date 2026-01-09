@@ -16,7 +16,7 @@ import { TenantInterceptor } from './common/interceptors/tenant-interceptor';
 
 /**
  * Modulo raiz de la aplicación
- * 
+ *
  */
 @Module({
   imports: [
@@ -36,10 +36,7 @@ import { TenantInterceptor } from './common/interceptors/tenant-interceptor';
     AdminAuthModule,
     BackofficeUsersModule,
   ],
-  providers: [
-    TenantContextService,
-    TenantInterceptor,
-  ],
+  providers: [TenantContextService, TenantInterceptor],
   exports: [TenantContextService, TenantInterceptor],
 })
 export class AppModule {}

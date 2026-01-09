@@ -14,8 +14,8 @@ import { MailService } from './services/mail.service';
       useFactory: async (config: ConfigService) => ({
         transport: {
           host: 'smtp.gmail.com',
-          port: 465,               // Cambiamos a 465
-          secure: true,            // TRUE para puerto 465
+          port: 465, // Cambiamos a 465
+          secure: true, // TRUE para puerto 465
           auth: {
             user: config.get<string>('MAIL_USER'),
             pass: config.get<string>('MAIL_PASS'), // La clave de 16 letras de Google
@@ -23,7 +23,7 @@ import { MailService } from './services/mail.service';
           tls: {
             // Esto es vital en Render para evitar que el firewall corte la conexión
             rejectUnauthorized: false,
-            minVersion: 'TLSv1.2'
+            minVersion: 'TLSv1.2',
           },
           connectionTimeout: 20000, // Aumenta a 20 segundos
           greetingTimeout: 20000,

@@ -21,14 +21,26 @@ export class MailService {
   }
 
   // Función auxiliar para procesar tus plantillas .hbs actuales
-  private async compileTemplate(templateName: string, context: any): Promise<string> {
-    const templatePath = join(process.cwd(), 'dist/modules/mail/templates', `${templateName}.hbs`);
+  private async compileTemplate(
+    templateName: string,
+    context: any,
+  ): Promise<string> {
+    const templatePath = join(
+      process.cwd(),
+      'dist/modules/mail/templates',
+      `${templateName}.hbs`,
+    );
     const templateSource = fs.readFileSync(templatePath, 'utf8');
     const compiledTemplate = handlebars.compile(templateSource);
     return compiledTemplate(context);
   }
 
-  async sendUserCredentials(user: User, company: Company, plainPassword?: string, pin?: string) {
+  async sendUserCredentials(
+    user: User,
+    company: Company,
+    plainPassword?: string,
+    pin?: string,
+  ) {
     try {
       const htmlContent = await this.compileTemplate('user-credentials', {
         firstName: user.firstName ?? 'usuario',
@@ -44,14 +56,21 @@ export class MailService {
         sender: { name: 'TicMeal', email: process.env.MAIL_USER },
         to: [{ email: user.email }],
       });
-      
+
       this.logger.log(`Email de credenciales enviado a ${user.email}`);
     } catch (error) {
-      this.logger.error(`Error API Brevo (${user.email}):`, error.response?.body || error);
+      this.logger.error(
+        `Error API Brevo (${user.email}):`,
+        error.response?.body || error,
+      );
     }
   }
 
-  async sendVerificationCode(user: User, company: Company, verificationCode: string) {
+  async sendVerificationCode(
+    user: User,
+    company: Company,
+    verificationCode: string,
+  ) {
     try {
       const htmlContent = await this.compileTemplate('email-verification', {
         firstName: user.firstName ?? 'usuario',
@@ -68,7 +87,10 @@ export class MailService {
 
       this.logger.log(`Email de verificación enviado a ${user.email}`);
     } catch (error) {
-      this.logger.error(`Error API Brevo (${user.email}):`, error.response?.body || error);
+      this.logger.error(
+        `Error API Brevo (${user.email}):`,
+        error.response?.body || error,
+      );
     }
   }
 }

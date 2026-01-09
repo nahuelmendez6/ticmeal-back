@@ -8,7 +8,9 @@ import { Ingredient } from '../stock/entities/ingredient.entity';
 import { MenuItems } from '../stock/entities/menu-items.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([StockMovement, Ticket, Ingredient, MenuItems])],
+  imports: [
+    TypeOrmModule.forFeature([StockMovement, Ticket, Ingredient, MenuItems]),
+  ],
   controllers: [ReportsController],
   providers: [ReportsService],
 })

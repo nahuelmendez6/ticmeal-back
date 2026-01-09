@@ -21,7 +21,10 @@ export class ReportsService {
     private readonly menuItemRepository: Repository<MenuItems>,
   ) {}
 
-  async getStockMovementsReport(dto: GetStockMovementsReportDto, tenantId: number) {
+  async getStockMovementsReport(
+    dto: GetStockMovementsReportDto,
+    tenantId: number,
+  ) {
     const { startDate: startDateStr, endDate: endDateStr, movementType } = dto;
 
     // Para evitar problemas de zona horaria, es más robusto trabajar con objetos Date.
@@ -29,7 +32,8 @@ export class ReportsService {
     const endDate = new Date(endDateStr);
     endDate.setUTCHours(23, 59, 59, 999);
 
-    const query = this.stockMovementRepository.createQueryBuilder('movement')
+    const query = this.stockMovementRepository
+      .createQueryBuilder('movement')
       .leftJoinAndSelect('movement.menuItem', 'menuItem')
       .leftJoinAndSelect('movement.ingredient', 'ingredient')
       .leftJoinAndSelect('movement.performedBy', 'user')
@@ -38,7 +42,10 @@ export class ReportsService {
         startDate,
         endDate,
       })
-      .andWhere('(menuItem.isActive = :isActive OR ingredient.isActive = :isActive)', { isActive: true });
+      .andWhere(
+        '(menuItem.isActive = :isActive OR ingredient.isActive = :isActive)',
+        { isActive: true },
+      );
 
     if (movementType) {
       query.andWhere('movement.movementType = :movementType', { movementType });
@@ -70,23 +77,22 @@ export class ReportsService {
     endDate.setUTCHours(23, 59, 59, 999);
 
     const query = this.ticketRepository
-    .createQueryBuilder('ticket')
-    .innerJoin('ticket.items', 'ticketItem')
-    .innerJoin('ticketItem.menuItem', 'menuItem')
-    .select('menuItem.name', 'name')
-    .addSelect('SUM(ticketItem.quantity)', 'totalConsumed')
-    .where('ticket.companyId = :tenantId', { tenantId })
-    .andWhere('ticket.status = :status', { status: TicketStatus.USED })
-    .andWhere('menuItem.isActive = :isActive', { isActive: true })
-    .andWhere('ticket.createdAt BETWEEN :startDate AND :endDate', {
-      startDate,
-      endDate,
-    })
-    .groupBy('menuItem.id')
-    .addGroupBy('menuItem.name')
-    .orderBy('SUM(ticketItem.quantity)', 'DESC')
-    .limit(limit);
-
+      .createQueryBuilder('ticket')
+      .innerJoin('ticket.items', 'ticketItem')
+      .innerJoin('ticketItem.menuItem', 'menuItem')
+      .select('menuItem.name', 'name')
+      .addSelect('SUM(ticketItem.quantity)', 'totalConsumed')
+      .where('ticket.companyId = :tenantId', { tenantId })
+      .andWhere('ticket.status = :status', { status: TicketStatus.USED })
+      .andWhere('menuItem.isActive = :isActive', { isActive: true })
+      .andWhere('ticket.createdAt BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
+      .groupBy('menuItem.id')
+      .addGroupBy('menuItem.name')
+      .orderBy('SUM(ticketItem.quantity)', 'DESC')
+      .limit(limit);
 
     const rawReport = await query.getRawMany();
     return rawReport.map((r) => ({
@@ -129,7 +135,8 @@ export class ReportsService {
     const rawReport = await query.getRawMany();
 
     return rawReport.map((r) => ({
-      date: r.date instanceof Date ? r.date.toISOString().split('T')[0] : r.date,
+      date:
+        r.date instanceof Date ? r.date.toISOString().split('T')[0] : r.date,
       itemName: r.itemName,
       totalConsumed: parseInt(r.totalConsumed, 10),
     }));
@@ -156,10 +163,16 @@ export class ReportsService {
       .leftJoin('movement.ingredient', 'ingredient')
       .select('CAST(movement.createdAt AS DATE)', 'date')
       .addSelect('ingredient.name', 'ingredientName')
-      .addSelect('SUM(movement.quantity * COALESCE(ingredient.cost, 0))', 'dailyIngredientCost')
+      .addSelect(
+        'SUM(movement.quantity * COALESCE(ingredient.cost, 0))',
+        'dailyIngredientCost',
+      )
       .where('movement.companyId = :tenantId', { tenantId })
       .andWhere('movement.movementType = :type', { type: MovementType.OUT })
-      .andWhere('movement.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .andWhere('movement.createdAt BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
       .andWhere('movement.ingredientId IS NOT NULL')
       .andWhere('ingredient.isActive = :isActive', { isActive: true })
       .groupBy('CAST(movement.createdAt AS DATE)')
@@ -168,17 +181,27 @@ export class ReportsService {
 
     const rawReport = await query.getRawMany();
 
-    const reportMap = new Map<string, { date: string; totalCost: number; details: { ingredientName: string; cost: number }[] }>();
+    const reportMap = new Map<
+      string,
+      {
+        date: string;
+        totalCost: number;
+        details: { ingredientName: string; cost: number }[];
+      }
+    >();
 
     for (const row of rawReport) {
-      const dateStr = row.date instanceof Date ? row.date.toISOString().split('T')[0] : row.date;
+      const dateStr =
+        row.date instanceof Date
+          ? row.date.toISOString().split('T')[0]
+          : row.date;
       const cost = parseFloat(row.dailyIngredientCost);
 
       if (!reportMap.has(dateStr)) {
         reportMap.set(dateStr, { date: dateStr, totalCost: 0, details: [] });
       }
 
-      const entry = reportMap.get(dateStr)!;
+      const entry = reportMap.get(dateStr);
       entry.totalCost += cost;
       entry.details.push({
         ingredientName: row.ingredientName,
@@ -211,28 +234,44 @@ export class ReportsService {
       .innerJoin('ticketItem.menuItem', 'menuItem')
       .select('CAST(ticket.createdAt AS DATE)', 'date')
       .addSelect('menuItem.name', 'menuItemName')
-      .addSelect('SUM(ticketItem.quantity * COALESCE(menuItem.cost, 0))', 'dailyMenuItemCost')
+      .addSelect(
+        'SUM(ticketItem.quantity * COALESCE(menuItem.cost, 0))',
+        'dailyMenuItemCost',
+      )
       .where('ticket.companyId = :tenantId', { tenantId })
       .andWhere('ticket.status = :status', { status: TicketStatus.USED })
       .andWhere('menuItem.isActive = :isActive', { isActive: true })
-      .andWhere('ticket.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .andWhere('ticket.createdAt BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
       .groupBy('CAST(ticket.createdAt AS DATE)')
       .addGroupBy('menuItem.name')
       .orderBy('date', 'ASC');
 
     const rawReport = await query.getRawMany();
 
-    const reportMap = new Map<string, { date: string; totalCost: number; details: { menuItemName: string; cost: number }[] }>();
+    const reportMap = new Map<
+      string,
+      {
+        date: string;
+        totalCost: number;
+        details: { menuItemName: string; cost: number }[];
+      }
+    >();
 
     for (const row of rawReport) {
-      const dateStr = row.date instanceof Date ? row.date.toISOString().split('T')[0] : row.date;
+      const dateStr =
+        row.date instanceof Date
+          ? row.date.toISOString().split('T')[0]
+          : row.date;
       const cost = parseFloat(row.dailyMenuItemCost);
 
       if (!reportMap.has(dateStr)) {
         reportMap.set(dateStr, { date: dateStr, totalCost: 0, details: [] });
       }
 
-      const entry = reportMap.get(dateStr)!;
+      const entry = reportMap.get(dateStr);
       entry.totalCost += cost;
       entry.details.push({
         menuItemName: row.menuItemName,
@@ -243,24 +282,24 @@ export class ReportsService {
     return Array.from(reportMap.values());
   }
 
-/**
+  /**
    * Genera un reporte de Costo Unitario Teórico del Menú (A.K.A. "Costeo de Recetas").
    * Calcula el costo unitario de producir un ítem del menú sumando el costo de todos sus ingredientes según la receta.
    * @param tenantId - ID del tenant.
    * @returns Lista de items de menú con su costo teórico.
    */
   async getTheoreticalMenuCostReport(tenantId: number) {
-    
     // 1. Definir la expresión de cálculo de costo como una constante para reutilizarla
-    const theoreticalCostExpression = 'SUM(COALESCE("recipeIngredient"."quantity", 0) * COALESCE("ingredient"."cost", 0))';
-    
+    const theoreticalCostExpression =
+      'SUM(COALESCE("recipeIngredient"."quantity", 0) * COALESCE("ingredient"."cost", 0))';
+
     const query = this.menuItemRepository
       .createQueryBuilder('menuItem')
       .leftJoin('menuItem.recipeIngredients', 'recipeIngredient')
       .leftJoin('recipeIngredient.ingredient', 'ingredient')
       .select('menuItem.name', 'menuItemName')
       // 2. Usar la expresión como SELECT
-      .addSelect(theoreticalCostExpression, 'theoreticalCost') 
+      .addSelect(theoreticalCostExpression, 'theoreticalCost')
       .where('menuItem.company = :tenantId', { tenantId })
       .andWhere('menuItem.isActive = :isActive', { isActive: true })
       .groupBy('menuItem.id')
@@ -274,7 +313,7 @@ export class ReportsService {
     return rawReport.map((r) => ({
       menuItemName: r.menuItemName,
       // Asegúrate de que el alias aquí coincida (theoreticalCost)
-      theoreticalCost: parseFloat(r.theoreticalCost || '0'), 
+      theoreticalCost: parseFloat(r.theoreticalCost || '0'),
     }));
   }
 
@@ -302,7 +341,13 @@ export class ReportsService {
     let totalInventoryValue = 0;
     const categoryMap = new Map<string, any>();
 
-    const processItem = (name: string, categoryName: string, quantity: number, unitCost: number, type: string) => {
+    const processItem = (
+      name: string,
+      categoryName: string,
+      quantity: number,
+      unitCost: number,
+      type: string,
+    ) => {
       const value = quantity * unitCost;
       totalInventoryValue += value;
 
@@ -324,8 +369,24 @@ export class ReportsService {
       });
     };
 
-    ingredients.forEach((ing) => processItem(ing.name, ing.category?.name || 'Sin Categoría', ing.quantityInStock, Number(ing.cost || 0), 'ingredient'));
-    menuItems.forEach((item) => processItem(item.name, item.category?.name || 'Sin Categoría', item.stock, Number(item.cost || 0), 'menu_item'));
+    ingredients.forEach((ing) =>
+      processItem(
+        ing.name,
+        ing.category?.name || 'Sin Categoría',
+        ing.quantityInStock,
+        Number(ing.cost || 0),
+        'ingredient',
+      ),
+    );
+    menuItems.forEach((item) =>
+      processItem(
+        item.name,
+        item.category?.name || 'Sin Categoría',
+        item.stock,
+        Number(item.cost || 0),
+        'menu_item',
+      ),
+    );
 
     return {
       totalInventoryValue,
@@ -454,7 +515,10 @@ export class ReportsService {
    * @param tenantId - ID del tenant.
    * @returns Estructura jerárquica: Día -> Turnos -> Items con costos.
    */
-  async getDetailedCostAnalysis(dto: GetStockMovementsReportDto, tenantId: number) {
+  async getDetailedCostAnalysis(
+    dto: GetStockMovementsReportDto,
+    tenantId: number,
+  ) {
     const { startDate: startDateStr, endDate: endDateStr } = dto;
     const startDate = new Date(startDateStr);
     const endDate = new Date(endDateStr);
@@ -478,33 +542,37 @@ export class ReportsService {
 
     const menuItemsCosts = await menuItemsQuery.getRawMany();
     const costMap = new Map<number, number>();
-    
-    menuItemsCosts.forEach(row => {
-        const fixed = parseFloat(row.fixedCost || '0');
-        const calculated = parseFloat(row.calculatedCost || '0');
-        // Prioridad al costo calculado (receta) si es mayor a 0
-        costMap.set(row.id, calculated > 0 ? calculated : fixed);
+
+    menuItemsCosts.forEach((row) => {
+      const fixed = parseFloat(row.fixedCost || '0');
+      const calculated = parseFloat(row.calculatedCost || '0');
+      // Prioridad al costo calculado (receta) si es mayor a 0
+      costMap.set(row.id, calculated > 0 ? calculated : fixed);
     });
 
     // 2. Obtener consumo desglosado por Día, Turno e Item
-    const query = this.ticketRepository.createQueryBuilder('ticket')
-        .leftJoin('ticket.shift', 'shift') // Left join para incluir tickets sin turno si los hubiera
-        .innerJoin('ticket.items', 'ticketItem')
-        .innerJoin('ticketItem.menuItem', 'menuItem')
-        .select('CAST(ticket.createdAt AS DATE)', 'date')
-        .addSelect('shift.name', 'shiftName')
-        .addSelect('menuItem.id', 'menuItemId')
-        .addSelect('menuItem.name', 'menuItemName')
-        .addSelect('SUM(ticketItem.quantity)', 'quantity')
-        .where('ticket.companyId = :tenantId', { tenantId })
-        .andWhere('ticket.status = :status', { status: TicketStatus.USED })
-        .andWhere('ticket.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
-        .groupBy('CAST(ticket.createdAt AS DATE)')
-        .addGroupBy('shift.name')
-        .addGroupBy('menuItem.id')
-        .addGroupBy('menuItem.name')
-        .orderBy('date', 'ASC')
-        .addOrderBy('shift.name', 'ASC');
+    const query = this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoin('ticket.shift', 'shift') // Left join para incluir tickets sin turno si los hubiera
+      .innerJoin('ticket.items', 'ticketItem')
+      .innerJoin('ticketItem.menuItem', 'menuItem')
+      .select('CAST(ticket.createdAt AS DATE)', 'date')
+      .addSelect('shift.name', 'shiftName')
+      .addSelect('menuItem.id', 'menuItemId')
+      .addSelect('menuItem.name', 'menuItemName')
+      .addSelect('SUM(ticketItem.quantity)', 'quantity')
+      .where('ticket.companyId = :tenantId', { tenantId })
+      .andWhere('ticket.status = :status', { status: TicketStatus.USED })
+      .andWhere('ticket.createdAt BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
+      .groupBy('CAST(ticket.createdAt AS DATE)')
+      .addGroupBy('shift.name')
+      .addGroupBy('menuItem.id')
+      .addGroupBy('menuItem.name')
+      .orderBy('date', 'ASC')
+      .addOrderBy('shift.name', 'ASC');
 
     const rawData = await query.getRawMany();
 
@@ -512,45 +580,48 @@ export class ReportsService {
     const reportMap = new Map<string, any>();
 
     for (const row of rawData) {
-        const date = row.date instanceof Date ? row.date.toISOString().split('T')[0] : row.date;
-        const shiftName = row.shiftName || 'Sin Turno';
-        const menuItemId = Number(row.menuItemId);
-        const quantity = parseInt(row.quantity, 10);
-        const unitCost = costMap.get(menuItemId) || 0;
-        const totalCost = unitCost * quantity;
+      const date =
+        row.date instanceof Date
+          ? row.date.toISOString().split('T')[0]
+          : row.date;
+      const shiftName = row.shiftName || 'Sin Turno';
+      const menuItemId = Number(row.menuItemId);
+      const quantity = parseInt(row.quantity, 10);
+      const unitCost = costMap.get(menuItemId) || 0;
+      const totalCost = unitCost * quantity;
 
-        if (!reportMap.has(date)) {
-            reportMap.set(date, { 
-                date, 
-                totalDailyCost: 0,
-                shifts: new Map<string, any>() 
-            });
-        }
-        const dayEntry = reportMap.get(date);
-        
-        if (!dayEntry.shifts.has(shiftName)) {
-            dayEntry.shifts.set(shiftName, { 
-                shiftName, 
-                totalShiftCost: 0,
-                items: [] 
-            });
-        }
-        const shiftEntry = dayEntry.shifts.get(shiftName);
-
-        shiftEntry.items.push({
-            menuItemName: row.menuItemName,
-            quantity,
-            unitCost,
-            totalCost
+      if (!reportMap.has(date)) {
+        reportMap.set(date, {
+          date,
+          totalDailyCost: 0,
+          shifts: new Map<string, any>(),
         });
-        shiftEntry.totalShiftCost += totalCost;
-        dayEntry.totalDailyCost += totalCost;
+      }
+      const dayEntry = reportMap.get(date);
+
+      if (!dayEntry.shifts.has(shiftName)) {
+        dayEntry.shifts.set(shiftName, {
+          shiftName,
+          totalShiftCost: 0,
+          items: [],
+        });
+      }
+      const shiftEntry = dayEntry.shifts.get(shiftName);
+
+      shiftEntry.items.push({
+        menuItemName: row.menuItemName,
+        quantity,
+        unitCost,
+        totalCost,
+      });
+      shiftEntry.totalShiftCost += totalCost;
+      dayEntry.totalDailyCost += totalCost;
     }
 
     // Convertir Maps a Arrays para el formato JSON final
-    return Array.from(reportMap.values()).map(day => ({
-        ...day,
-        shifts: Array.from(day.shifts.values())
+    return Array.from(reportMap.values()).map((day) => ({
+      ...day,
+      shifts: Array.from(day.shifts.values()),
     }));
   }
 

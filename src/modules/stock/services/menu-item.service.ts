@@ -14,7 +14,10 @@ import { CategoryService } from './category.service';
 import { IngredientService } from './ingredient.service';
 import { StockMovement } from '../entities/stock-movement.entity';
 import { MovementType } from '../enums/enums';
+import { MenuItemType } from '../enums/menuItemTypes';
 import { RecipeIngredient } from '../entities/recipe-ingredient.entity';
+import { MealShiftService } from './meal-shift.service';
+
 
 
 @Injectable()
@@ -26,6 +29,7 @@ export class MenuItemService {
     private readonly recipeIngredientRepo: Repository<RecipeIngredient>,
     private readonly categoryService: CategoryService,
     private readonly ingredientService: IngredientService,
+    private readonly mealShiftService: MealShiftService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -39,17 +43,25 @@ export class MenuItemService {
     companyId: number,
     userId: number,
   ): Promise<MenuItems> {
-    const { recipeIngredients: recipeDto, categoryId, ...menuItemData } = createDto;
+    const {
+      recipeIngredients: recipeDto,
+      categoryId,
+      ...menuItemData
+    } = createDto;
 
     // Validar categoría si se proporciona
     if (categoryId) {
-      await this.categoryService.validateCategoryAvailability(categoryId, companyId);
+      await this.categoryService.validateCategoryAvailability(
+        categoryId,
+        companyId,
+      );
     }
 
     // Validar todos los ingredientes de la receta
     if (recipeDto && recipeDto.length > 0) {
       const ingredientIds = recipeDto.map((ri) => ri.ingredientId);
-      const ingredients = await this.ingredientService.findAllForTenant(companyId);
+      const ingredients =
+        await this.ingredientService.findAllForTenant(companyId);
       const tenantIngredientIds = ingredients.map((i) => i.id);
 
       for (const id of ingredientIds) {
@@ -74,7 +86,7 @@ export class MenuItemService {
       const savedMenuItem = await queryRunner.manager.save(newMenuItem);
 
       if (recipeDto && recipeDto.length > 0) {
-        const recipe = recipeDto.map(ri =>
+        const recipe = recipeDto.map((ri) =>
           queryRunner.manager.create(RecipeIngredient, {
             menuItem: savedMenuItem,
             ingredient: { id: ri.ingredientId },
@@ -110,13 +122,35 @@ export class MenuItemService {
   /**
    * Obtiene todos los ítems de menú para una empresa.
    */
-  async findAllForTenant(companyId: number): Promise<MenuItems[]> {
-    // Se reemplaza el helper por el método estándar de TypeORM para poder incluir relaciones.
-    return this.menuItemRepo.find({
+  async findAllForTenant(
+    companyId: number,
+    shiftId?: number,
+    date?: Date,
+  ): Promise<MenuItems[]> {
+    const menuItems = await this.menuItemRepo.find({
       where: { companyId },
-      relations: ['category', 'recipeIngredients', 'recipeIngredients.ingredient'],
+      relations: [
+        'category',
+        'recipeIngredients',
+        'recipeIngredients.ingredient',
+      ],
       order: { name: 'ASC' },
     });
+
+    for (const item of menuItems) {
+      let isProduced = true;
+      if (shiftId && date && item.type === MenuItemType.PRODUCTO_COMPUESTO) {
+        isProduced = await this.mealShiftService.isMenuItemProducedForShift(
+          item.id,
+          shiftId,
+          date,
+          companyId,
+        );
+      }
+      item.isProduced = isProduced;
+    }
+
+    return menuItems;
   }
 
   /**
@@ -126,7 +160,11 @@ export class MenuItemService {
     // Se reemplaza el helper por el método estándar de TypeORM para poder incluir relaciones.
     const menuItem = await this.menuItemRepo.findOne({
       where: { id, companyId },
-      relations: ['category', 'recipeIngredients', 'recipeIngredients.ingredient'],
+      relations: [
+        'category',
+        'recipeIngredients',
+        'recipeIngredients.ingredient',
+      ],
     });
 
     if (!menuItem) {
@@ -150,13 +188,20 @@ export class MenuItemService {
   ): Promise<MenuItems> {
     // findOneForTenant valida la pertenencia y carga las relaciones existentes
     const menuItemToUpdate = await this.findOneForTenant(id, companyId);
-    const { recipeIngredients: recipeDto, categoryId, ...menuItemData } = updateDto;
+    const {
+      recipeIngredients: recipeDto,
+      categoryId,
+      ...menuItemData
+    } = updateDto;
 
     const originalStock = menuItemToUpdate.stock;
 
     // Validar nueva categoría si cambia
     if (categoryId && categoryId !== menuItemToUpdate.category?.id) {
-      await this.categoryService.validateCategoryAvailability(categoryId, companyId);
+      await this.categoryService.validateCategoryAvailability(
+        categoryId,
+        companyId,
+      );
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -166,7 +211,11 @@ export class MenuItemService {
     try {
       const newStock = menuItemData.stock;
       const stockChanged = newStock !== undefined && newStock !== originalStock;
-      const hasRecipeAfterUpdate = recipeDto != null ? recipeDto.length > 0 : (menuItemToUpdate.recipeIngredients && menuItemToUpdate.recipeIngredients.length > 0);
+      const hasRecipeAfterUpdate =
+        recipeDto != null
+          ? recipeDto.length > 0
+          : menuItemToUpdate.recipeIngredients &&
+            menuItemToUpdate.recipeIngredients.length > 0;
 
       if (stockChanged && !hasRecipeAfterUpdate) {
         const quantityDiff = newStock - originalStock;
@@ -200,7 +249,9 @@ export class MenuItemService {
       // Si se proporciona una nueva receta, reemplazar la anterior
       if (recipeDto) {
         // Eliminar receta anterior
-        await queryRunner.manager.delete(RecipeIngredient, { menuItem: { id } });
+        await queryRunner.manager.delete(RecipeIngredient, {
+          menuItem: { id },
+        });
         // Crear y guardar la nueva receta
         if (recipeDto.length > 0) {
           // (La validación de ingredientes se omite aquí por brevedad, pero debería hacerse como en `create`)

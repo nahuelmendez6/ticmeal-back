@@ -56,7 +56,10 @@ export class TicketService {
     let user: User | null = null;
     for (const u of usersInTenant) {
       if (u.pinHash) {
-        const isPinValid = await this.usersService.validatePin(createTicketDto.pin, u.pinHash);
+        const isPinValid = await this.usersService.validatePin(
+          createTicketDto.pin,
+          u.pinHash,
+        );
         if (isPinValid) {
           user = u;
           break;
@@ -64,18 +67,23 @@ export class TicketService {
       }
     }
     if (!user) {
-      throw new UnauthorizedException('PIN incorrecto o usuario no encontrado.');
+      throw new UnauthorizedException(
+        'PIN incorrecto o usuario no encontrado.',
+      );
     }
     // si el usuario fue encontrado y el PIN es correcto, proceder a crear el ticket
-    return this.processTicketCreation(user, createTicketDto.menuItemIds, tenantId);
+    return this.processTicketCreation(
+      user,
+      createTicketDto.menuItemIds,
+      tenantId,
+    );
   }
 
-  async createManual(
-    dto: CreateManualTicketDto,
-    tenantId: number,
-  ) {
+  async createManual(dto: CreateManualTicketDto, tenantId: number) {
     if (!dto.userId) {
-      throw new BadRequestException('El ID de usuario es requerido para tickets manuales.');
+      throw new BadRequestException(
+        'El ID de usuario es requerido para tickets manuales.',
+      );
     }
 
     // 1. Buscar usuario por ID dentro del tenant
@@ -89,7 +97,12 @@ export class TicketService {
     }
 
     // 1. Crear ticket como PENDING primero
-    const ticket = await this.processTicketCreation(user, dto.menuItemIds, tenantId, TicketStatus.PENDING);
+    const ticket = await this.processTicketCreation(
+      user,
+      dto.menuItemIds,
+      tenantId,
+      TicketStatus.PENDING,
+    );
 
     // 2. Descontar stock
     await this.deductStockForTicket(ticket, tenantId);
@@ -102,7 +115,12 @@ export class TicketService {
     return usedTicket;
   }
 
-  private async processTicketCreation(user: User, menuItemIds: number[], tenantId: number, status: TicketStatus = TicketStatus.PENDING) {
+  private async processTicketCreation(
+    user: User,
+    menuItemIds: number[],
+    tenantId: number,
+    status: TicketStatus = TicketStatus.PENDING,
+  ) {
     // 2. Obtener turno activo
     const now = new Date();
     const hour = now.toTimeString().split(' ')[0]; // HH:mm:ss
@@ -149,10 +167,12 @@ export class TicketService {
     }
 
     const itemsMap = new Map(foundItems.map((item) => [item.id, item]));
-    
+
     // Agrupar items y calcular cantidades
     const itemCounts = new Map<number, number>();
-    menuItemIds.forEach((id) => itemCounts.set(id, (itemCounts.get(id) || 0) + 1));
+    menuItemIds.forEach((id) =>
+      itemCounts.set(id, (itemCounts.get(id) || 0) + 1),
+    );
 
     const ticketItems: TicketItem[] = [];
     for (const [id, qty] of itemCounts) {
@@ -189,7 +209,9 @@ export class TicketService {
     // aunque ahora la estructura real es 'items' con 'quantity'.
     // Si el frontend espera 'menuItems' como array plano con duplicados:
     const flatMenuItems: MenuItems[] = [];
-    fullTicket.items.forEach(ti => { for(let i=0; i<ti.quantity; i++) flatMenuItems.push(ti.menuItem); });
+    fullTicket.items.forEach((ti) => {
+      for (let i = 0; i < ti.quantity; i++) flatMenuItems.push(ti.menuItem);
+    });
     (fullTicket as any).menuItems = flatMenuItems;
 
     // Emitir el evento a través del gateway
@@ -223,7 +245,9 @@ export class TicketService {
       relations: ['recipeIngredients', 'recipeIngredients.ingredient'],
     });
 
-    const itemsMap = new Map(foundItemsWithRelations.map((item) => [item.id, item]));
+    const itemsMap = new Map(
+      foundItemsWithRelations.map((item) => [item.id, item]),
+    );
 
     const affectedIngredientIds = new Set<number>();
     const affectedMenuItemIds = new Set<number>();
@@ -243,7 +267,7 @@ export class TicketService {
           await this.ingredientRepository.decrement(
             { id: ingredient.id },
             'quantityInStock',
-            deductAmount
+            deductAmount,
           );
           affectedIngredientIds.add(ingredient.id);
 
@@ -322,7 +346,6 @@ export class TicketService {
     }
   }
 
-
   findAll(): Promise<Ticket[]> {
     return this.ticketRepository.find({
       relations: ['user', 'shift', 'items', 'items.menuItem', 'observations'],
@@ -341,7 +364,7 @@ export class TicketService {
   }
 
   async update(id: number, updateTicketDto: UpdateTicketDto): Promise<Ticket> {
-    const { menuItemIds , ...ticketData } = updateTicketDto;
+    const { menuItemIds, ...ticketData } = updateTicketDto;
 
     const ticket = await this.ticketRepository.preload({
       id,
@@ -354,10 +377,14 @@ export class TicketService {
 
     if (menuItemIds) {
       // Reconstruir items
-      const foundItems = await this.menuItemRepository.findBy({ id: In(menuItemIds) });
+      const foundItems = await this.menuItemRepository.findBy({
+        id: In(menuItemIds),
+      });
       const itemsMap = new Map(foundItems.map((item) => [item.id, item]));
       const itemCounts = new Map<number, number>();
-      menuItemIds.forEach((id) => itemCounts.set(id, (itemCounts.get(id) || 0) + 1));
+      menuItemIds.forEach((id) =>
+        itemCounts.set(id, (itemCounts.get(id) || 0) + 1),
+      );
 
       const newTicketItems: TicketItem[] = [];
       for (const [id, qty] of itemCounts) {
@@ -420,12 +447,17 @@ export class TicketService {
     }
   }
 
-  private emitLowStockAlert(type: 'ingredient' | 'menuItem', entity: any, tenantId: number) {
+  private emitLowStockAlert(
+    type: 'ingredient' | 'menuItem',
+    entity: any,
+    tenantId: number,
+  ) {
     this.ticketGateway.broadcastLowStockAlert({
       type,
       id: entity.id,
       name: entity.name,
-      currentStock: type === 'ingredient' ? entity.quantityInStock : entity.stock,
+      currentStock:
+        type === 'ingredient' ? entity.quantityInStock : entity.stock,
       minStock: entity.minStock,
       unit: type === 'ingredient' ? entity.unit : 'unit',
       companyId: tenantId,

@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TenantAwareRepository } from 'src/common/repository/tenant-aware.repository';
 import { Repository, DeepPartial, Like, In } from 'typeorm';
@@ -35,11 +40,16 @@ export class UsersService {
       }
       const company = await this.companyRepo.findOneBy({ id: dto.companyId });
       if (!company) {
-        throw new NotFoundException(`Compañía con ID ${dto.companyId} no encontrada.`);
+        throw new NotFoundException(
+          `Compañía con ID ${dto.companyId} no encontrada.`,
+        );
       }
-      dto.username = await this.generateUniqueUsername(dto.firstName, dto.companyId, company.name);
+      dto.username = await this.generateUniqueUsername(
+        dto.firstName,
+        dto.companyId,
+        company.name,
+      );
     }
-
 
     const { observationsIds, ...userDto } = dto;
 
@@ -68,7 +78,11 @@ export class UsersService {
   }
 
   async findAllForTenant(companyId: number): Promise<User[]> {
-    return TenantAwareRepository.createTenantQueryBuilder(this.userRepo, companyId, 'user')
+    return TenantAwareRepository.createTenantQueryBuilder(
+      this.userRepo,
+      companyId,
+      'user',
+    )
       .leftJoinAndSelect('user.company', 'company')
       .leftJoinAndSelect('user.observations', 'observations')
       .getMany();
@@ -134,7 +148,12 @@ export class UsersService {
    * Busca un usuario por ID verificando que pertenezca al tenant.
    */
   async findByIdForTenant(id: number, companyId: number): Promise<User | null> {
-    return TenantAwareRepository.findOneByTenant(this.userRepo, id, companyId, 'user');
+    return TenantAwareRepository.findOneByTenant(
+      this.userRepo,
+      id,
+      companyId,
+      'user',
+    );
   }
 
   /**
@@ -148,7 +167,10 @@ export class UsersService {
   /**
    * Busca un usuario por email verificando que pertenezca al tenant.
    */
-  async findByEmailForTenant(email: string, companyId: number): Promise<User | null> {
+  async findByEmailForTenant(
+    email: string,
+    companyId: number,
+  ): Promise<User | null> {
     return this.userRepo.findOne({
       where: { email, companyId },
       relations: ['company'],
@@ -188,9 +210,15 @@ export class UsersService {
    * Elimina un usuario verificando que pertenezca al tenant.
    */
   async removeForTenant(id: number, companyId: number): Promise<boolean> {
-    const belongs = await TenantAwareRepository.belongsToTenant(this.userRepo, id, companyId);
+    const belongs = await TenantAwareRepository.belongsToTenant(
+      this.userRepo,
+      id,
+      companyId,
+    );
     if (!belongs) {
-      throw new ForbiddenException('No tienes permiso para eliminar este usuario');
+      throw new ForbiddenException(
+        'No tienes permiso para eliminar este usuario',
+      );
     }
     await this.userRepo.delete(id);
     return true;

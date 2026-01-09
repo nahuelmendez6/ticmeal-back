@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Category, } from './entities/category.entity';
+import { Category } from './entities/category.entity';
 import { MenuItems } from './entities/menu-items.entity';
 import { Ingredient } from './entities/ingredient.entity';
 import { IngredientCategory } from './entities/ingredient-category.entity';
 import { RecipeIngredient } from './entities/recipe-ingredient.entity';
-import { StockMovement } from './entities/stock-movement.entity';   
+import { StockMovement } from './entities/stock-movement.entity';
 
 import { CategoryService } from './services/category.service';
 import { IngredientCategoryService } from './services/ingredient-category.service';
@@ -30,7 +30,7 @@ import { MealShiftController } from './controllers/meal-shift.controller';
       IngredientCategory,
       RecipeIngredient,
       StockMovement,
-      MealShift
+      MealShift,
     ]),
   ],
   providers: [
@@ -47,7 +47,7 @@ import { MealShiftController } from './controllers/meal-shift.controller';
     IngredientController,
     MenuItemController,
     RecipeIngredientController,
-    MealShiftController
+    MealShiftController,
   ],
   exports: [
     TypeOrmModule,
@@ -56,6 +56,7 @@ import { MealShiftController } from './controllers/meal-shift.controller';
     IngredientService,
     MenuItemService,
     RecipeIngredientService,
+    MealShiftService,
   ],
 })
 export class StockModule {}

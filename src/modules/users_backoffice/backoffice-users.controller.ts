@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
 import { BackofficeUsersService } from './backoffice-users.service';
 import { CreateUserDto } from './create-user.dto';
 import { UpdateUserDto } from './update-user.dto';
@@ -13,7 +22,9 @@ import { Public } from '../../common/decorators/public.decorator';
 @UseGuards(AdminJwtAuthGuard, RolesGuard)
 @Roles(AdminRole.SUPER_ADMIN)
 export class BackofficeUsersController {
-  constructor(private readonly backofficeUsersService: BackofficeUsersService) {}
+  constructor(
+    private readonly backofficeUsersService: BackofficeUsersService,
+  ) {}
 
   @Post()
   create(@Body() createUserDto: CreateUserDto) {

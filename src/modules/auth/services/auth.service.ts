@@ -30,7 +30,7 @@ export class AuthService {
     @InjectRepository(Observation)
     private readonly observationRepo: Repository<Observation>,
     private readonly dataSource: DataSource,
-    private readonly mailService: MailService, 
+    private readonly mailService: MailService,
   ) {}
 
   // ==============================
@@ -38,63 +38,72 @@ export class AuthService {
   // ==============================
 
   async registerKitchenAdmin(userDto: CreateUserDto, currentUser: User) {
-    return this.registerCompanyUser(userDto, currentUser, UserRole.KITCHEN_ADMIN);
+    return this.registerCompanyUser(
+      userDto,
+      currentUser,
+      UserRole.KITCHEN_ADMIN,
+    );
   }
 
   async registerCompanyAdmin(userDto: CreateUserDto, currentUser: User) {
-    return this.registerCompanyUser(userDto, currentUser, UserRole.COMPANY_ADMIN);
+    return this.registerCompanyUser(
+      userDto,
+      currentUser,
+      UserRole.COMPANY_ADMIN,
+    );
   }
 
   async registerDiner(userDto: CreateUserDto, currentUser: User) {
     return this.registerCompanyUser(userDto, currentUser, UserRole.DINER);
   }
 
-
   // ======================================
   // Verificacion de codigo
   // ======================================
   async verifyRegistration(email: string, code: string) {
-      const user = await this.userRepo.findOne({
-          where: { email, verificationCode: code },
-      });
+    const user = await this.userRepo.findOne({
+      where: { email, verificationCode: code },
+    });
 
-      if (!user) {
-          throw new BadRequestException('Código o email no válido.');
-      }
-      
-      // Primero, verifica que el campo no sea null antes de intentar usarlo
-      if (!user.verificationCodeExpiresAt) {
-          // Esto indica una inconsistencia de datos, o que ya fue verificado y limpiado,
-          // por lo que el código no debería funcionar.
-          throw new BadRequestException('El código de verificación no es válido o ya fue utilizado.');
-      }
-      
-      // Ahora que TypeScript sabe que NO es null (Type Narrowing), 
-      // puedes usarlo de forma segura para la comparación.
-      if (user.verificationCodeExpiresAt < new Date()) {
-          throw new BadRequestException('El código de verificación ha expirado. Por favor, solicite uno nuevo.');
-      }
-      
-      // ----------------------------------------------------
+    if (!user) {
+      throw new BadRequestException('Código o email no válido.');
+    }
 
-      // 3. Verificar la cuenta
-      user.isEmailVerified = true;
-      user.verificationCode = null;
-      user.verificationCodeExpiresAt = null; // Asignar 'null' ya está bien si el tipo es Date | null
+    // Primero, verifica que el campo no sea null antes de intentar usarlo
+    if (!user.verificationCodeExpiresAt) {
+      // Esto indica una inconsistencia de datos, o que ya fue verificado y limpiado,
+      // por lo que el código no debería funcionar.
+      throw new BadRequestException(
+        'El código de verificación no es válido o ya fue utilizado.',
+      );
+    }
 
-      await this.userRepo.save(user);
-      
-      return { 
-          message: 'Cuenta verificada exitosamente. Ahora puede iniciar sesión.',
-          user: { 
-              id: user.id, 
-              email: user.email, 
-              isEmailVerified: user.isEmailVerified 
-          } 
-      };
+    // Ahora que TypeScript sabe que NO es null (Type Narrowing),
+    // puedes usarlo de forma segura para la comparación.
+    if (user.verificationCodeExpiresAt < new Date()) {
+      throw new BadRequestException(
+        'El código de verificación ha expirado. Por favor, solicite uno nuevo.',
+      );
+    }
+
+    // ----------------------------------------------------
+
+    // 3. Verificar la cuenta
+    user.isEmailVerified = true;
+    user.verificationCode = null;
+    user.verificationCodeExpiresAt = null; // Asignar 'null' ya está bien si el tipo es Date | null
+
+    await this.userRepo.save(user);
+
+    return {
+      message: 'Cuenta verificada exitosamente. Ahora puede iniciar sesión.',
+      user: {
+        id: user.id,
+        email: user.email,
+        isEmailVerified: user.isEmailVerified,
+      },
+    };
   }
-
-
 
   // ==============================
   // Registro de nueva empresa + admin
@@ -134,34 +143,36 @@ export class AuthService {
         role: UserRole.COMPANY_ADMIN,
         company,
         isEmailVerified: false,
-        verificationCode,  // guardar el codigo generado
+        verificationCode, // guardar el codigo generado
         verificationCodeExpiresAt, // guardar la expiracion
       });
 
       const savedAdmin = await userRepoTx.save(adminUser);
 
       // enviar credenciales al admin
-      await this.mailService.sendUserCredentials(savedAdmin, company, undefined);
-
+      await this.mailService.sendUserCredentials(
+        savedAdmin,
+        company,
+        undefined,
+      );
 
       // aca va envio de email
       if (adminDto.email) {
         await this.mailService.sendVerificationCode(
           savedAdmin,
           company,
-          verificationCode
-        )
+          verificationCode,
+        );
       }
 
-
-  return { 
-    company, 
-    admin: { 
-      id: savedAdmin.id, 
-      username: savedAdmin.username, 
-      email: savedAdmin.email, 
-      isEmailVerified: savedAdmin.isEmailVerified // Indicar el estado
-        } 
+      return {
+        company,
+        admin: {
+          id: savedAdmin.id,
+          username: savedAdmin.username,
+          email: savedAdmin.email,
+          isEmailVerified: savedAdmin.isEmailVerified, // Indicar el estado
+        },
       };
     });
   }
@@ -242,18 +253,17 @@ export class AuthService {
     let observations: Observation[] = [];
     if (userDto.observationsIds && userDto.observationsIds.length > 0) {
       observations = await this.observationRepo.find({
-        where: { 
-          id: In(userDto.observationsIds)
+        where: {
+          id: In(userDto.observationsIds),
         },
       });
-      
+
       if (observations.length !== userDto.observationsIds.length) {
         throw new BadRequestException(
-          'Una o más IDs de observaciones no existen'
+          'Una o más IDs de observaciones no existen',
         );
       }
     }
-
 
     // 7. Crear usuario
     const newUser = this.userRepo.create({
@@ -283,9 +293,13 @@ export class AuthService {
   }
 
   private async getCompanyOrThrow(companyId: number): Promise<Company> {
-    const company = await this.companyRepo.findOne({ where: { id: companyId } });
+    const company = await this.companyRepo.findOne({
+      where: { id: companyId },
+    });
     if (!company)
-      throw new BadRequestException('El administrador no tiene una empresa asociada');
+      throw new BadRequestException(
+        'El administrador no tiene una empresa asociada',
+      );
     return company;
   }
 
@@ -312,11 +326,11 @@ export class AuthService {
 const generateVerificationCode = (): string => {
   // genera un codigo aleatoriode 6 digitos
   return Math.floor(100000 + Math.random() * 900000).toString();
-}
+};
 
 // Helper para calcular la expiración
 const getVerificationCodeExpiration = (): Date => {
   const expires = new Date();
   expires.setMinutes(expires.getMinutes() + 10);
   return expires;
-}
+};

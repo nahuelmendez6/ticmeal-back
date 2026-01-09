@@ -12,6 +12,7 @@ import {
   HttpCode,
   HttpStatus,
   ForbiddenException,
+  Query,
 } from '@nestjs/common';
 import { MenuItemService } from '../services/menu-item.service';
 import { CreateMenuItemDto } from '../dto/create-menu-item-dto';
@@ -21,6 +22,7 @@ import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
 import { Roles } from 'src/modules/auth/decorators/roles.decorators';
 import { Tenant } from 'src/common/decorators/tenant-decorator';
 import { MenuItems } from '../entities/menu-items.entity';
+
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('menu-items')
@@ -52,11 +54,17 @@ export class MenuItemController {
    */
   @Get()
   @Roles('company_admin', 'kitchen_admin', 'diner')
-  async findAll(@Tenant() tenantId: number): Promise<MenuItems[]> {
+  async findAll(
+    @Tenant() tenantId: number,
+    @Query('shiftId') shiftId?: string,
+    @Query('date') date?: string,
+  ): Promise<MenuItems[]> {
     if (!tenantId) {
       throw new ForbiddenException('No se pudo determinar el tenant.');
     }
-    return this.menuItemService.findAllForTenant(tenantId);
+    const shiftIdNum = shiftId ? parseInt(shiftId, 10) : undefined;
+    const dateObj = date ? new Date(date) : undefined;
+    return this.menuItemService.findAllForTenant(tenantId, shiftIdNum, dateObj);
   }
 
   /**

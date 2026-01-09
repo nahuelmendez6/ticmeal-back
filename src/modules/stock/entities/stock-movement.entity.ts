@@ -1,6 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+} from 'typeorm';
 // Importación ASUMIDA de la entidad base multi-tenant
-import { BaseTenantEntity } from 'src/common/entities/base-tenant.entity'; 
+import { BaseTenantEntity } from 'src/common/entities/base-tenant.entity';
 
 import { MenuItems } from './menu-items.entity';
 import { Ingredient } from './ingredient.entity';
@@ -10,11 +17,12 @@ import { User } from 'src/modules/users/entities/user.entity';
 
 @Entity('stock_movements')
 // Extiende BaseTenantEntity: Hereda id, companyId, y probablemente createdAt/updatedAt
-export class StockMovement extends BaseTenantEntity { // <-- AHORA EXTIENDE BaseTenantEntity
-  
+export class StockMovement extends BaseTenantEntity {
+  // <-- AHORA EXTIENDE BaseTenantEntity
+
   @PrimaryGeneratedColumn()
   id: number;
-  
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
   // Relaciones (Solo uno de los dos debe estar presente)

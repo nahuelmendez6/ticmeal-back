@@ -5,9 +5,12 @@ import { ShiftService } from './services/shift.service';
 import { ShiftController } from './controllers/shift.controller';
 import { MenuItems } from '../stock/entities/menu-items.entity';
 
+import { StockModule } from '../stock/stock.module';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([Shift, MenuItems]), // Importamos MenuItems para que el servicio pueda usar su repositorio
+    StockModule,
   ],
   controllers: [ShiftController],
   providers: [ShiftService],

@@ -1,4 +1,13 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Matches, IsInt, IsArray } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  IsInt,
+  IsArray,
+} from 'class-validator';
 
 export class CreateUserDto {
   @IsOptional()
@@ -25,7 +34,9 @@ export class CreateUserDto {
   role?: string;
 
   @IsOptional()
-  @Matches(/^\d{4}$/, { message: 'El PIN debe tener exactamente 4 dígitos numéricos' })
+  @Matches(/^\d{4}$/, {
+    message: 'El PIN debe tener exactamente 4 dígitos numéricos',
+  })
   pin?: string;
 
   @IsOptional()

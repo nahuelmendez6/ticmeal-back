@@ -43,7 +43,7 @@ export class TicketController {
 
   @ApiBearerAuth()
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard) 
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiOperation({ summary: 'Crear un nuevo ticket (Admin)' })
   create(@Body() createTicketDto: CreateTicketDto, @Tenant() tenantId: number) {
     return this.ticketService.create(createTicketDto, tenantId);
@@ -53,7 +53,10 @@ export class TicketController {
   @Post('manual')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiOperation({ summary: 'Crear un ticket manual asignado a un usuario' })
-  createManual(@Body() createManualTicketDto: CreateManualTicketDto, @Tenant() tenantId: number) {
+  createManual(
+    @Body() createManualTicketDto: CreateManualTicketDto,
+    @Tenant() tenantId: number,
+  ) {
     return this.ticketService.createManual(createManualTicketDto, tenantId);
   }
 
@@ -106,7 +109,10 @@ export class TicketController {
   @Patch(':id/use')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiOperation({ summary: 'Marcar ticket como usado y descontar stock' })
-  markAsUsed(@Param('id', ParseIntPipe) id: number, @Tenant() tenantId: number) {
+  markAsUsed(
+    @Param('id', ParseIntPipe) id: number,
+    @Tenant() tenantId: number,
+  ) {
     return this.ticketService.markAsUsed(id, tenantId);
   }
 }

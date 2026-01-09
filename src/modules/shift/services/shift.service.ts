@@ -4,17 +4,13 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  In,
-  Repository,
-  DataSource,
-  LessThan,
-  MoreThan,
-} from 'typeorm';
+import { In, Repository, DataSource, LessThan, MoreThan } from 'typeorm';
 import { Shift } from '../entities/shift.entity';
 import { MenuItems } from 'src/modules/stock/entities/menu-items.entity';
 import { CreateShiftDto } from '../dto/create-shift.dto';
 import { UpdateShiftDto } from '../dto/update-shift.dto';
+import { MealShiftService } from 'src/modules/stock/services/meal-shift.service';
+import { MenuItemType } from 'src/modules/stock/enums/menuItemTypes';
 
 @Injectable()
 export class ShiftService {
@@ -23,6 +19,7 @@ export class ShiftService {
     private readonly shiftRepo: Repository<Shift>,
     @InjectRepository(MenuItems)
     private readonly menuItemsRepo: Repository<MenuItems>,
+    private readonly mealShiftService: MealShiftService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -32,11 +29,17 @@ export class ShiftService {
    */
   async create(createDto: CreateShiftDto, companyId: number): Promise<Shift> {
     const { menuItemIds, ...shiftData } = createDto;
-    let menuItems: MenuItems[] = [];
 
-    // Si se proporcionan menuItemIds, validarlos y cargarlos.
+    // 1. Crear y guardar el turno sin los menu items
+    const shiftEntity = this.shiftRepo.create({
+      ...shiftData,
+      companyId,
+    });
+    const newShift = await this.shiftRepo.save(shiftEntity);
+
+    // 2. Si se proporcionan menuItemIds, validarlos y asociarlos
     if (menuItemIds && menuItemIds.length > 0) {
-      menuItems = await this.menuItemsRepo.find({
+      const menuItems = await this.menuItemsRepo.find({
         where: { id: In(menuItemIds), companyId },
       });
 
@@ -45,15 +48,30 @@ export class ShiftService {
           'Uno o más ítems de menú no son válidos o no pertenecen a su empresa.',
         );
       }
+
+      // 3. Verificación de producción para ítems compuestos
+      for (const item of menuItems) {
+        if (item.type === MenuItemType.PRODUCTO_COMPUESTO) {
+          const isProduced =
+            await this.mealShiftService.isMenuItemProducedForShift(
+              item.id,
+              newShift.id,
+              new Date(), // Asumimos la fecha actual para la verificación
+              companyId,
+            );
+          if (!isProduced) {
+            throw new BadRequestException(
+              `El ítem compuesto "${item.name}" no ha sido producido para este turno y fecha.`,
+            );
+          }
+        }
+      }
+
+      // 4. Asociar los menu items y guardar
+      newShift.menuItems = menuItems;
+      await this.shiftRepo.save(newShift);
     }
 
-    const newShift = this.shiftRepo.create({
-      ...shiftData,
-      companyId,
-      menuItems,
-    });
-
-    await this.shiftRepo.save(newShift);
     return this.findOneForTenant(newShift.id, companyId);
   }
 
@@ -70,13 +88,11 @@ export class ShiftService {
 
   /** Obtiene los turnos con menu activo */
   async findActivesShiftForTenant(companyId: number): Promise<Shift[]> {
-    return this.shiftRepo.find(
-      {
-        where: { companyId, menuActive: true },
-        relations: ['menuItems'],
-        order: { startTime: 'ASC' },
-      }
-    )
+    return this.shiftRepo.find({
+      where: { companyId, menuActive: true },
+      relations: ['menuItems'],
+      order: { startTime: 'ASC' },
+    });
   }
 
   /** Obtiene los turnos activos en su horario */
@@ -100,7 +116,6 @@ export class ShiftService {
     return shifts;
   }
 
-
   /**
    * Busca un turno por ID, verificando que pertenezca a la empresa.
    */
@@ -119,7 +134,6 @@ export class ShiftService {
     return shift;
   }
 
-
   /**
    * Actualiza un turno.
    * La actualización de los ítems de menú es un reemplazo completo.
@@ -129,22 +143,20 @@ export class ShiftService {
     updateDto: UpdateShiftDto,
     companyId: number,
   ): Promise<Shift> {
-    // findOneForTenant valida la pertenencia y carga las relaciones existentes
-    const shiftToUpdate = await this.findOneForTenant(id, companyId);
     const { menuItemIds, ...shiftData } = updateDto;
+    const shiftToUpdate = await this.findOneForTenant(id, companyId);
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      // Actualizar datos del Turno
       queryRunner.manager.merge(Shift, shiftToUpdate, shiftData);
 
-      // Si se proporciona un nuevo array de menuItemIds, reemplazar los existentes.
       if (menuItemIds !== undefined) {
+        let menuItems: MenuItems[] = [];
         if (menuItemIds.length > 0) {
-          const menuItems = await this.menuItemsRepo.find({
+          menuItems = await this.menuItemsRepo.find({
             where: { id: In(menuItemIds), companyId },
           });
 
@@ -153,11 +165,26 @@ export class ShiftService {
               'Uno o más ítems de menú no son válidos o no pertenecen a su empresa.',
             );
           }
-          shiftToUpdate.menuItems = menuItems;
-        } else {
-          // Si el array está vacío, se eliminan todas las relaciones.
-          shiftToUpdate.menuItems = [];
+
+          for (const item of menuItems) {
+            if (item.type === MenuItemType.PRODUCTO_COMPUESTO) {
+              // aca se evalua sin un item ha sido producido para este turno y fecha
+              const isProduced =
+                await this.mealShiftService.isMenuItemProducedForShift(
+                  item.id,
+                  id, // ID del turno que se está actualizando
+                  new Date(),
+                  companyId,
+                );
+              if (!isProduced) {
+                throw new BadRequestException(
+                  `El ítem compuesto "${item.name}" no ha sido producido para este turno y fecha.`,
+                );
+              }
+            }
+          }
         }
+        shiftToUpdate.menuItems = menuItems;
       }
 
       await queryRunner.manager.save(shiftToUpdate);

@@ -22,110 +22,106 @@ import type { Request } from 'express';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('categories')
 export class CategoryController {
+  constructor(private readonly categoryService: CategoryService) {}
 
-    constructor(private readonly categoryService: CategoryService) {}
+  @Post()
+  @Roles('super_admin', 'company_admin')
+  async create(
+    @Body() createCategoryDto: CreateCategoryDto,
+    @Tenant() tenantId: number | undefined,
+    @Req() req: Request,
+  ) {
+    const user: any = (req as any).user;
 
-    @Post()
-    @Roles('super_admin', 'company_admin')
-    async create (
-        @Body() createCategoryDto: CreateCategoryDto,
-        @Tenant() tenantId: number | undefined,
-        @Req() req: Request
-    ) {
-        const user: any = (req as any).user;
-        
-        // Si no es super_admin, usar el tenantId del usuario autenticado
-        if (user.role !== 'super_admin') {
-        if (!tenantId) {
-            throw new ForbiddenException('No se pudo determinar el tenant');
-        }
-            return this.categoryService.create(createCategoryDto, tenantId);
-        }
-        
-        // Super_admin puede especificar el companyId en el DTO si es necesario
-        // Por ahora, requerimos que siempre se use el tenantId del usuario
-        if (!tenantId) {
+    // Si no es super_admin, usar el tenantId del usuario autenticado
+    if (user.role !== 'super_admin') {
+      if (!tenantId) {
         throw new ForbiddenException('No se pudo determinar el tenant');
-        }
-        return this.categoryService.create(createCategoryDto, tenantId);
+      }
+      return this.categoryService.create(createCategoryDto, tenantId);
     }
 
-    @Get()
-    async findAll(
-        @Tenant() tenantId: number | undefined,
-        @Req() req: Request,
-    ) {
-        const user: any = (req as any).user;
+    // Super_admin puede especificar el companyId en el DTO si es necesario
+    // Por ahora, requerimos que siempre se use el tenantId del usuario
+    if (!tenantId) {
+      throw new ForbiddenException('No se pudo determinar el tenant');
+    }
+    return this.categoryService.create(createCategoryDto, tenantId);
+  }
 
-        // Los super_admin podrían ver todas las categorías, pero por ahora se restringe al tenant
-        if (user.role === 'super_admin') {
-        // Opcional: Implementar un método `findAll` sin filtro de tenant si es necesario.
-        }
+  @Get()
+  async findAll(@Tenant() tenantId: number | undefined, @Req() req: Request) {
+    const user: any = (req as any).user;
 
-        // El resto de usuarios solo ven las categorías de su tenant
-        if (!tenantId) {
-            throw new ForbiddenException('No se pudo determinar el tenant');
-        }
-
-        return this.categoryService.findAllForTenant(tenantId);
+    // Los super_admin podrían ver todas las categorías, pero por ahora se restringe al tenant
+    if (user.role === 'super_admin') {
+      // Opcional: Implementar un método `findAll` sin filtro de tenant si es necesario.
     }
 
-    @Get(':id')
-    async findOne(
-        @Param('id') id: string,
-        @Tenant() tenantId: number | undefined,
-        @Req() req: Request,
-    ) {
-        const user: any = (req as any).user;
-
-        // super_admin puede ver cualquier categoría
-        if (user.role === 'super_admin') {
-            // Opcional: Implementar un método `findOne` sin filtro de tenant.
-        }
-
-        // El resto de usuarios solo pueden ver categorías de su tenant
-        if (!tenantId) {
-            throw new ForbiddenException('No se pudo determinar el tenant');
-        }
-
-        return this.categoryService.findOneForTenant(Number(id), tenantId);
+    // El resto de usuarios solo ven las categorías de su tenant
+    if (!tenantId) {
+      throw new ForbiddenException('No se pudo determinar el tenant');
     }
 
-    @Put(':id')
-    @Roles('super_admin', 'company_admin')
-    async update(
-        @Param('id') id: string,
-        @Body() updateCategoryDto: UpdateCategoryDto,
-        @Tenant() tenantId: number | undefined,
-        @Req() req: Request,
-    ) {
-        const user: any = (req as any).user;
+    return this.categoryService.findAllForTenant(tenantId);
+  }
 
-        // super_admin puede actualizar cualquier categoría
-        if (user.role === 'super_admin') {
-            // Opcional: Implementar un método `update` sin filtro de tenant.
-        }
+  @Get(':id')
+  async findOne(
+    @Param('id') id: string,
+    @Tenant() tenantId: number | undefined,
+    @Req() req: Request,
+  ) {
+    const user: any = (req as any).user;
 
-        if (!tenantId) {
-            throw new ForbiddenException('No se pudo determinar el tenant');
-        }
-
-        return this.categoryService.update(Number(id), updateCategoryDto, tenantId);
+    // super_admin puede ver cualquier categoría
+    if (user.role === 'super_admin') {
+      // Opcional: Implementar un método `findOne` sin filtro de tenant.
     }
 
-    @Delete(':id')
-    @Roles('super_admin', 'company_admin')
-    async remove(
-        @Param('id') id: string,
-        @Tenant() tenantId: number | undefined,
-        @Req() req: Request,
-    ) {
-        const user: any = (req as any).user;
-
-        if (!tenantId) {
-            throw new ForbiddenException('No se pudo determinar el tenant');
-        }
-
-        return this.categoryService.remove(Number(id), tenantId);
+    // El resto de usuarios solo pueden ver categorías de su tenant
+    if (!tenantId) {
+      throw new ForbiddenException('No se pudo determinar el tenant');
     }
+
+    return this.categoryService.findOneForTenant(Number(id), tenantId);
+  }
+
+  @Put(':id')
+  @Roles('super_admin', 'company_admin')
+  async update(
+    @Param('id') id: string,
+    @Body() updateCategoryDto: UpdateCategoryDto,
+    @Tenant() tenantId: number | undefined,
+    @Req() req: Request,
+  ) {
+    const user: any = (req as any).user;
+
+    // super_admin puede actualizar cualquier categoría
+    if (user.role === 'super_admin') {
+      // Opcional: Implementar un método `update` sin filtro de tenant.
+    }
+
+    if (!tenantId) {
+      throw new ForbiddenException('No se pudo determinar el tenant');
+    }
+
+    return this.categoryService.update(Number(id), updateCategoryDto, tenantId);
+  }
+
+  @Delete(':id')
+  @Roles('super_admin', 'company_admin')
+  async remove(
+    @Param('id') id: string,
+    @Tenant() tenantId: number | undefined,
+    @Req() req: Request,
+  ) {
+    const user: any = (req as any).user;
+
+    if (!tenantId) {
+      throw new ForbiddenException('No se pudo determinar el tenant');
+    }
+
+    return this.categoryService.remove(Number(id), tenantId);
+  }
 }

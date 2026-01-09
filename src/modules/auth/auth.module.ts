@@ -18,13 +18,14 @@ import { MailModule } from '../mail/mail.module'; // 👈 importante para los co
     UsersModule,
     PassportModule,
     CompaniesModule,
-    MailModule, 
-    TypeOrmModule.forFeature([Company, User, Observation]), 
+    MailModule,
+    TypeOrmModule.forFeature([Company, User, Observation]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => {
-        const secret = configService.get<string>('JWT_SECRET') || 'default_secret';
+        const secret =
+          configService.get<string>('JWT_SECRET') || 'default_secret';
         const expiresInEnv = configService.get<string>('JWT_EXPIRES_IN');
         const expiresIn = expiresInEnv ? Number(expiresInEnv) : 3600;
         return {

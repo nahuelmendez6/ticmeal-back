@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -42,7 +46,10 @@ export class BackofficeUsersService {
     // Asignar Company
     if (companyId) {
       const company = await this.companyRepository.findOneBy({ id: companyId });
-      if (!company) throw new NotFoundException(`Company con ID ${companyId} no encontrada`);
+      if (!company)
+        throw new NotFoundException(
+          `Company con ID ${companyId} no encontrada`,
+        );
       user.company = company;
     }
 
@@ -65,13 +72,12 @@ export class BackofficeUsersService {
     return JSON.parse(JSON.stringify(users));
   }
 
-
-
   async findOne(id: number): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id },
     });
-    if (!user) throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    if (!user)
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
     return user;
   }
 
@@ -93,15 +99,22 @@ export class BackofficeUsersService {
       if (companyId === null) {
         user.company = null as any;
       } else {
-        const company = await this.companyRepository.findOneBy({ id: companyId });
-        if (!company) throw new NotFoundException(`Company con ID ${companyId} no encontrada`);
+        const company = await this.companyRepository.findOneBy({
+          id: companyId,
+        });
+        if (!company)
+          throw new NotFoundException(
+            `Company con ID ${companyId} no encontrada`,
+          );
         user.company = company;
       }
     }
 
     // Actualizar Observations
     if (observationIds) {
-      const observations = await this.observationRepository.findBy({ id: In(observationIds) });
+      const observations = await this.observationRepository.findBy({
+        id: In(observationIds),
+      });
       user.observations = observations;
     }
 

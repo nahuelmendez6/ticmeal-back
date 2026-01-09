@@ -16,7 +16,8 @@ import { Logger } from '@nestjs/common';
   namespace: 'tickets', // Namespace para organizar los eventos de tickets
 })
 export class TicketGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer() server: Server;
   private logger: Logger = new Logger('TicketGateway');
 
@@ -43,7 +44,9 @@ export class TicketGateway
     const companyId = ticket.companyId || (ticket.company && ticket.company.id);
     if (companyId) {
       this.server.to(`company_${companyId}`).emit('newTicket', ticket);
-      this.logger.log(`Broadcasting new ticket: ${ticket.id} to company_${companyId}`);
+      this.logger.log(
+        `Broadcasting new ticket: ${ticket.id} to company_${companyId}`,
+      );
     }
   }
 
@@ -51,13 +54,17 @@ export class TicketGateway
     const companyId = ticket.companyId || (ticket.company && ticket.company.id);
     if (companyId) {
       this.server.to(`company_${companyId}`).emit('ticketUpdated', ticket);
-      this.logger.log(`Broadcasting update for ticket: ${ticket.id} to company_${companyId}`);
+      this.logger.log(
+        `Broadcasting update for ticket: ${ticket.id} to company_${companyId}`,
+      );
     }
   }
 
   broadcastLowStockAlert(payload: any) {
     if (payload.companyId) {
-      this.server.to(`company_${payload.companyId}`).emit('lowStockAlert', payload);
+      this.server
+        .to(`company_${payload.companyId}`)
+        .emit('lowStockAlert', payload);
       this.logger.warn(
         `Low stock alert emitted for ${payload.type}: ${payload.name} to company_${payload.companyId}`,
       );

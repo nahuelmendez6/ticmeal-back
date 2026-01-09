@@ -1,0 +1,4 @@
+export enum MenuItemType {
+  PRODUCTO_SIMPLE = 'SIMPLE',
+  PRODUCTO_COMPUESTO = 'COMPUESTO',
+}

@@ -1,4 +1,12 @@
-import { IsArray, IsInt, IsNotEmpty, IsString, Matches, ValidateIf, IsOptional } from 'class-validator';
+import {
+  IsArray,
+  IsInt,
+  IsNotEmpty,
+  IsString,
+  Matches,
+  ValidateIf,
+  IsOptional,
+} from 'class-validator';
 
 export class CreateTicketDto {
   // @ValidateIf((o) => !o.userId)
@@ -6,7 +14,7 @@ export class CreateTicketDto {
   @IsNotEmpty()
   @Matches(/^\d{4}$/, { message: 'El PIN debe tener exactamente 4 dígitos' })
   pin: string;
-  
+
   @IsOptional()
   @IsInt()
   userId?: number;

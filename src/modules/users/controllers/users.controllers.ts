@@ -33,7 +33,7 @@ export class UsersController {
     @Req() req: Request,
   ) {
     const user: any = (req as any).user;
-    
+
     // Si no es super_admin, usar el tenantId del usuario autenticado
     if (user.role !== 'super_admin') {
       if (!tenantId) {
@@ -41,24 +41,24 @@ export class UsersController {
       }
       (dto as any).companyId = tenantId;
     }
-    
+
     return this.usersService.createUser(dto as any);
   }
 
   @Get()
   async list(@Tenant() tenantId: number | undefined, @Req() req: Request) {
     const user: any = (req as any).user;
-    
+
     // Los super_admin pueden ver todos los usuarios
     if (user.role === 'super_admin') {
       return this.usersService.findAll();
     }
-    
+
     // Los demás solo ven usuarios de su tenant
     if (!tenantId) {
       throw new ForbiddenException('No se pudo determinar el tenant');
     }
-    
+
     return this.usersService.findAllForTenant(tenantId);
   }
 
@@ -69,7 +69,7 @@ export class UsersController {
     @Req() req: Request,
   ) {
     const userReq: any = (req as any).user;
-    
+
     // Los super_admin pueden ver cualquier usuario
     if (userReq.role === 'super_admin') {
       const found = await this.usersService.findById(Number(id));
@@ -78,17 +78,20 @@ export class UsersController {
       }
       return found;
     }
-    
+
     // Los demás solo pueden ver usuarios de su tenant
     if (!tenantId) {
       throw new ForbiddenException('No se pudo determinar el tenant');
     }
-    
-    const found = await this.usersService.findByIdForTenant(Number(id), tenantId);
+
+    const found = await this.usersService.findByIdForTenant(
+      Number(id),
+      tenantId,
+    );
     if (!found) {
       throw new NotFoundException('Usuario no encontrado o sin permisos');
     }
-    
+
     return found;
   }
 
@@ -103,7 +106,8 @@ export class UsersController {
     const userReq: any = (req as any).user;
 
     // Los super_admin pueden editar cualquier usuario, los company_admin solo los de su tenant.
-    const targetTenantId = userReq.role === 'super_admin' ? undefined : tenantId;
+    const targetTenantId =
+      userReq.role === 'super_admin' ? undefined : tenantId;
 
     if (userReq.role !== 'super_admin' && !targetTenantId) {
       throw new ForbiddenException('No se pudo determinar el tenant');
@@ -120,18 +124,18 @@ export class UsersController {
     @Req() req: Request,
   ) {
     const userReq: any = (req as any).user;
-    
+
     // Los super_admin pueden eliminar cualquier usuario
     if (userReq.role === 'super_admin') {
       await this.usersService.remove(Number(id));
       return { deleted: true };
     }
-    
+
     // Los demás solo pueden eliminar usuarios de su tenant
     if (!tenantId) {
       throw new ForbiddenException('No se pudo determinar el tenant');
     }
-    
+
     await this.usersService.removeForTenant(Number(id), tenantId);
     return { deleted: true };
   }

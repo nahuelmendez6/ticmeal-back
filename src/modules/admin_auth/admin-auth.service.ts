@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -19,7 +23,9 @@ export class AdminAuthService {
   async register(createAdminDto: CreateAdminDto): Promise<AdminUser> {
     const { username, password, role } = createAdminDto;
 
-    const existingUser = await this.adminUserRepository.findOne({ where: { username } });
+    const existingUser = await this.adminUserRepository.findOne({
+      where: { username },
+    });
     if (existingUser) {
       throw new ConflictException('El administrador ya existe');
     }
@@ -36,17 +42,20 @@ export class AdminAuthService {
     return this.adminUserRepository.save(newAdmin);
   }
 
-
   async validateUser(loginAdminDto: LoginAdminDto): Promise<AdminUser> {
     const { username, password } = loginAdminDto;
-    
+
     // Necesitamos seleccionar el passwordHash explícitamente porque tiene select: false en la entidad
-    const user = await this.adminUserRepository.findOne({ 
+    const user = await this.adminUserRepository.findOne({
       where: { username },
-      select: ['id', 'username', 'passwordHash', 'role', 'isActive']
+      select: ['id', 'username', 'passwordHash', 'role', 'isActive'],
     });
 
-    if (user && user.isActive && await bcrypt.compare(password, user.passwordHash)) {
+    if (
+      user &&
+      user.isActive &&
+      (await bcrypt.compare(password, user.passwordHash))
+    ) {
       const { passwordHash, ...result } = user;
       return result as AdminUser;
     }
@@ -55,7 +64,12 @@ export class AdminAuthService {
   }
 
   async login(user: AdminUser) {
-    const payload = { username: user.username, sub: user.id, roles: user.role, isAdmin: true };
+    const payload = {
+      username: user.username,
+      sub: user.id,
+      roles: user.role,
+      isAdmin: true,
+    };
     return {
       access_token: this.jwtService.sign(payload),
     };

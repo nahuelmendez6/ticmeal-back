@@ -42,7 +42,10 @@ export class RecipeIngredientController {
     if (!tenantId) {
       throw new ForbiddenException('No se pudo determinar el tenant.');
     }
-    return this.recipeIngredientService.addIngredientToRecipe(createDto, tenantId);
+    return this.recipeIngredientService.addIngredientToRecipe(
+      createDto,
+      tenantId,
+    );
   }
 
   /**

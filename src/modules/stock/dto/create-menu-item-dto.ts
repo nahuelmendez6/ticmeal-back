@@ -8,8 +8,11 @@ import {
   ValidateNested,
   IsPositive,
   IsBoolean,
+  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
+import { MenuItemType } from '../enums/menuItemTypes';
 
 /**
  * DTO para un ingrediente dentro de la receta de un MenuItem.
@@ -68,6 +71,9 @@ export class CreateMenuItemDto {
   @IsNumber()
   maxOrder?: number;
 
+  @IsOptional()
+  @IsEnum(MenuItemType)
+  type?: MenuItemType;
 
   @IsOptional()
   @IsArray()

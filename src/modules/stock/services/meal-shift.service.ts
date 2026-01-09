@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, QueryRunner } from 'typeorm';
 import { MealShift } from '../entities/meal-shift.entity';
@@ -11,6 +11,8 @@ import { Ingredient } from '../entities/ingredient.entity';
 
 @Injectable()
 export class MealShiftService {
+  private readonly logger = new Logger(MealShiftService.name);
+
   constructor(
     @InjectRepository(MealShift)
     private readonly mealShiftRepository: Repository<MealShift>,
@@ -19,7 +21,11 @@ export class MealShiftService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async create(createMealShiftDto: CreateMealShiftDto, companyId: number, userId?: number): Promise<MealShift> {
+  async create(
+    createMealShiftDto: CreateMealShiftDto,
+    companyId: number,
+    userId?: number,
+  ): Promise<MealShift> {
     const { menuItemId, quantityProduced } = createMealShiftDto;
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -34,14 +40,17 @@ export class MealShiftService {
       });
 
       if (!menuItem) {
-        throw new NotFoundException(`Menu Item with ID ${menuItemId} not found`);
+        throw new NotFoundException(
+          `Menu Item with ID ${menuItemId} not found`,
+        );
       }
 
       // 2. Crear el MealShift
       const mealShift = queryRunner.manager.create(MealShift, {
         ...createMealShiftDto,
         companyId,
-        quantityAvailable: createMealShiftDto.quantityAvailable ?? quantityProduced,
+        quantityAvailable:
+          createMealShiftDto.quantityAvailable ?? quantityProduced,
       });
       const savedMealShift = await queryRunner.manager.save(mealShift);
 
@@ -62,7 +71,13 @@ export class MealShiftService {
       await queryRunner.manager.save(menuItem);
 
       // 4. Registrar movimientos de stock para los ingredientes (PRODUCCION -> OUT)
-      await this.deductIngredientsStock(queryRunner, menuItem, quantityProduced, companyId, userId);
+      await this.deductIngredientsStock(
+        queryRunner,
+        menuItem,
+        quantityProduced,
+        companyId,
+        userId,
+      );
 
       await queryRunner.commitTransaction();
       return savedMealShift;
@@ -87,7 +102,12 @@ export class MealShiftService {
         const quantityRequired = recipeIngredient.quantity * quantityProduced;
 
         // Actualizar stock del ingrediente
-        await queryRunner.manager.decrement(Ingredient, { id: ingredient.id }, 'quantityInStock', quantityRequired);
+        await queryRunner.manager.decrement(
+          Ingredient,
+          { id: ingredient.id },
+          'quantityInStock',
+          quantityRequired,
+        );
 
         const ingredientMovement = this.stockMovementRepository.create({
           ingredient,
@@ -124,14 +144,46 @@ export class MealShiftService {
     return mealShift;
   }
 
-  async update(id: number, updateMealShiftDto: UpdateMealShiftDto, companyId: number): Promise<MealShift> {
+  async update(
+    id: number,
+    updateMealShiftDto: UpdateMealShiftDto,
+    companyId: number,
+  ): Promise<MealShift> {
     const mealShift = await this.findOne(id, companyId);
-    const updated = this.mealShiftRepository.merge(mealShift, updateMealShiftDto);
+    const updated = this.mealShiftRepository.merge(
+      mealShift,
+      updateMealShiftDto,
+    );
     return await this.mealShiftRepository.save(updated);
   }
 
   async remove(id: number, companyId: number): Promise<void> {
     const mealShift = await this.findOne(id, companyId);
     await this.mealShiftRepository.remove(mealShift);
+  }
+
+  async isMenuItemProducedForShift(
+    menuItemId: number,
+    shiftId: number,
+    date: Date,
+    companyId: number,
+  ): Promise<boolean> {
+    this.logger.log(
+      `Checking production for menuItemId: ${menuItemId}, shiftId: ${shiftId}, date: ${date.toISOString()}, companyId: ${companyId}`,
+    );
+
+    const mealShift = await this.mealShiftRepository.findOne({
+      where: {
+        menuItemId,
+        shiftId,
+        companyId,
+        date,
+      },
+    });
+
+    const result = mealShift && mealShift.quantityProduced > 0;
+    this.logger.log(`Production check result: ${result}`);
+
+    return result;
   }
 }

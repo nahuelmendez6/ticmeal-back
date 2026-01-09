@@ -24,7 +24,12 @@ import { AdminUser } from './admin-user.entity';
     }),
   ],
   controllers: [AdminAuthController],
-  providers: [AdminAuthService, AdminJwtStrategy, AdminJwtAuthGuard, RolesGuard],
+  providers: [
+    AdminAuthService,
+    AdminJwtStrategy,
+    AdminJwtAuthGuard,
+    RolesGuard,
+  ],
   exports: [JwtModule, AdminJwtAuthGuard, RolesGuard, AdminAuthService],
 })
 export class AdminAuthModule {}

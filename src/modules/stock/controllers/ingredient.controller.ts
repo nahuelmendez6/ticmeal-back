@@ -91,7 +91,12 @@ export class IngredientController {
       throw new ForbiddenException('No se pudo determinar el tenant.');
     }
     const { id: userId } = req.user;
-    return this.ingredientService.update(id, updateIngredientDto, tenantId, userId);
+    return this.ingredientService.update(
+      id,
+      updateIngredientDto,
+      tenantId,
+      userId,
+    );
   }
 
   /**

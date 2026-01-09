@@ -32,7 +32,11 @@ export class CompaniesController {
 
   // super_admin puede editar cualquiera; company_admin solo la suya
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() dto: UpdateCompanyDto, @Req() req: Request) {
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateCompanyDto,
+    @Req() req: Request,
+  ) {
     const companyId = Number(id);
     const user: any = (req as any).user;
     if (user.role !== 'super_admin' && user.company?.id !== companyId) {

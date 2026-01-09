@@ -1,4 +1,11 @@
-import { Controller, Post, Body, UseGuards, Get, Request } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Get,
+  Request,
+} from '@nestjs/common';
 import { AdminAuthService } from './admin-auth.service';
 import { CreateAdminDto } from './create-admin.dto';
 import { LoginAdminDto } from './login-admin.dto';

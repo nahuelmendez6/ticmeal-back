@@ -82,6 +82,9 @@ export class IngredientCategoryController {
       throw new ForbiddenException('No se pudo determinar el tenant');
     }
     await this.ingredientCategoryService.remove(id, tenantId);
-    return { message: 'Categoría de ingrediente eliminada correctamente.', success: true };
+    return {
+      message: 'Categoría de ingrediente eliminada correctamente.',
+      success: true,
+    };
   }
 }

@@ -1,4 +1,10 @@
-import { Controller, Get, Query, UseGuards, ValidationPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  UseGuards,
+  ValidationPipe,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
@@ -18,7 +24,8 @@ export class ReportsController {
   @Roles('company_admin', 'kitchen_admin')
   @ApiOperation({ summary: 'Obtener reporte de movimientos de stock' })
   getStockMovementsReport(
-    @Query(new ValidationPipe({ transform: true })) dto: GetStockMovementsReportDto,
+    @Query(new ValidationPipe({ transform: true }))
+    dto: GetStockMovementsReportDto,
     @Tenant() tenantId: number,
   ) {
     return this.reportsService.getStockMovementsReport(dto, tenantId);
@@ -39,7 +46,8 @@ export class ReportsController {
   @Roles('company_admin', 'kitchen_admin')
   @ApiOperation({ summary: 'Obtener reporte de tendencia de consumo' })
   getConsumptionTrend(
-    @Query(new ValidationPipe({ transform: true })) dto: GetStockMovementsReportDto,
+    @Query(new ValidationPipe({ transform: true }))
+    dto: GetStockMovementsReportDto,
     @Tenant() tenantId: number,
   ) {
     return this.reportsService.getConsumptionTrend(dto, tenantId);
@@ -47,27 +55,41 @@ export class ReportsController {
 
   @Get('ingredient-consumption-cost')
   @Roles('company_admin', 'kitchen_admin')
-  @ApiOperation({ summary: 'Obtener evolución del costo de consumo de ingredientes' })
+  @ApiOperation({
+    summary: 'Obtener evolución del costo de consumo de ingredientes',
+  })
   getIngredientConsumptionCostEvolution(
-    @Query(new ValidationPipe({ transform: true })) dto: GetStockMovementsReportDto,
+    @Query(new ValidationPipe({ transform: true }))
+    dto: GetStockMovementsReportDto,
     @Tenant() tenantId: number,
   ) {
-    return this.reportsService.getIngredientConsumptionCostEvolution(dto, tenantId);
+    return this.reportsService.getIngredientConsumptionCostEvolution(
+      dto,
+      tenantId,
+    );
   }
 
   @Get('menu-item-consumption-cost')
   @Roles('company_admin', 'kitchen_admin')
-  @ApiOperation({ summary: 'Obtener evolución del costo de consumo de items de menú' })
+  @ApiOperation({
+    summary: 'Obtener evolución del costo de consumo de items de menú',
+  })
   getMenuItemConsumptionCostEvolution(
-    @Query(new ValidationPipe({ transform: true })) dto: GetStockMovementsReportDto,
+    @Query(new ValidationPipe({ transform: true }))
+    dto: GetStockMovementsReportDto,
     @Tenant() tenantId: number,
   ) {
-    return this.reportsService.getMenuItemConsumptionCostEvolution(dto, tenantId);
+    return this.reportsService.getMenuItemConsumptionCostEvolution(
+      dto,
+      tenantId,
+    );
   }
 
   @Get('theoretical-menu-cost')
   @Roles('company_admin', 'kitchen_admin')
-  @ApiOperation({ summary: 'Obtener reporte de Costo Unitario Teórico del Menú' })
+  @ApiOperation({
+    summary: 'Obtener reporte de Costo Unitario Teórico del Menú',
+  })
   getTheoreticalMenuCostReport(@Tenant() tenantId: number) {
     return this.reportsService.getTheoreticalMenuCostReport(tenantId);
   }
@@ -81,9 +103,12 @@ export class ReportsController {
 
   @Get('general-summary')
   @Roles('company_admin', 'kitchen_admin')
-  @ApiOperation({ summary: 'Obtener resumen general de todos los reportes para exportación' })
+  @ApiOperation({
+    summary: 'Obtener resumen general de todos los reportes para exportación',
+  })
   getGeneralReport(
-    @Query(new ValidationPipe({ transform: true })) dto: GetStockMovementsReportDto,
+    @Query(new ValidationPipe({ transform: true }))
+    dto: GetStockMovementsReportDto,
     @Tenant() tenantId: number,
   ) {
     return this.reportsService.getGeneralReport(dto, tenantId);
@@ -93,10 +118,10 @@ export class ReportsController {
   @Roles('company_admin', 'kitchen_admin')
   @ApiOperation({ summary: 'Obtener reporte de Consumo vs. Costo' })
   getConsumptionVsCostReport(
-    @Query(new ValidationPipe({ transform: true })) dto: GetStockMovementsReportDto,
+    @Query(new ValidationPipe({ transform: true }))
+    dto: GetStockMovementsReportDto,
     @Tenant() tenantId: number,
   ) {
     return this.reportsService.getConsumptionVsCostReport(dto, tenantId);
   }
-
 }

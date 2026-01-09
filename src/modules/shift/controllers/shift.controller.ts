@@ -78,7 +78,9 @@ export class ShiftController {
   async findAll(@Tenant() tenantId: number, @Req() req: Request) {
     const user: any = req.user;
     if (user.role === 'super_admin' && !tenantId) {
-      throw new ForbiddenException('Super admin debe operar en el contexto de una empresa.');
+      throw new ForbiddenException(
+        'Super admin debe operar en el contexto de una empresa.',
+      );
     }
     if (!tenantId) {
       throw new ForbiddenException('No se pudo determinar la empresa.');
