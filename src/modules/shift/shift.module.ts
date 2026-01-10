@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Shift } from './entities/shift.entity';
 import { ShiftService } from './services/shift.service';
@@ -9,11 +9,11 @@ import { StockModule } from '../stock/stock.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Shift, MenuItems]), // Importamos MenuItems para que el servicio pueda usar su repositorio
-    StockModule,
+    TypeOrmModule.forFeature([Shift, MenuItems]),
+    forwardRef(() => StockModule),
   ],
   controllers: [ShiftController],
   providers: [ShiftService],
-  exports: [ShiftService], // Exportamos el servicio por si otros módulos necesitan usarlo
+  exports: [ShiftService],
 })
 export class ShiftModule {}

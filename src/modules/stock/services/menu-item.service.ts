@@ -94,7 +94,7 @@ export class MenuItemService {
             quantity: initialStock,
             movementType: MovementType.IN,
             reason: 'Carga inicial',
-            unitCost: createDto.price,
+            unitCost: createDto.cost,
           },
           companyId,
           userId,
@@ -239,7 +239,7 @@ export class MenuItemService {
               movementType:
                 quantityDiff > 0 ? MovementType.IN : MovementType.OUT,
               reason: 'Ajuste de stock',
-              unitCost: updateDto.price,
+              unitCost: updateDto.cost,
             },
             companyId,
             userId,

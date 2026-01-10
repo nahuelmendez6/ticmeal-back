@@ -58,7 +58,7 @@ export class MealShiftService {
           quantity: quantityProduced,
           movementType: MovementType.IN,
           reason: 'Producción',
-          unitCost: menuItem.price,
+          unitCost: menuItem.cost,
         },
         companyId,
         userId,

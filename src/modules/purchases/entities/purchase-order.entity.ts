@@ -5,6 +5,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  PrimaryGeneratedColumn
 } from 'typeorm';
 import { BaseTenantEntity } from 'src/common/entities/base-tenant.entity';
 import { PurchaseOrderStatus } from '../enums/purchase-order-status.enum';
@@ -13,6 +14,10 @@ import { Supplier } from 'src/modules/suppliers/entities/supplier.entity';
 
 @Entity('purchase_orders')
 export class PurchaseOrder extends BaseTenantEntity {
+
+  @PrimaryGeneratedColumn()
+  id: number;
+
   @Column({ type: 'date' })
   orderDate: Date;
 

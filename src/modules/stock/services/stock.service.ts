@@ -26,7 +26,7 @@ export class StockService {
   ): Promise<StockMovement[]> {
     return this.stockMovementRepo.find({
       where: { ingredient: { id: ingredientId }, companyId },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC' as const },
       relations: ['performedBy'],
     });
   }
@@ -37,7 +37,7 @@ export class StockService {
   ): Promise<StockMovement[]> {
     return this.stockMovementRepo.find({
       where: { menuItem: { id: menuItemId }, companyId },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC' as const },
       relations: ['performedBy'],
     });
   }

@@ -1,9 +1,12 @@
-import { Entity, Column, OneToMany } from 'typeorm';
+import { Entity, Column, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { BaseTenantEntity } from 'src/common/entities/base-tenant.entity';
 import { PurchaseOrder } from 'src/modules/purchases/entities/purchase-order.entity';
 
 @Entity('suppliers')
 export class Supplier extends BaseTenantEntity {
+  @PrimaryGeneratedColumn()
+  id: number;
+
   @Column({ type: 'varchar', length: 255 })
   name: string;
 

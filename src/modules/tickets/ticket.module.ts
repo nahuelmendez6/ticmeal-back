@@ -11,6 +11,8 @@ import { Observation } from '../users/entities/observation.entity';
 import { UsersModule } from '../users/users.module';
 import { ShiftModule } from '../shift/shift.module';
 import { StockModule } from '../stock/stock.module';
+import { StockMovement } from '../stock/entities/stock-movement.entity';
+import { Ingredient } from '../stock/entities/ingredient.entity';
 
 import { TicketGateway } from './services/ticket.gateway';
 
@@ -23,6 +25,8 @@ import { TicketGateway } from './services/ticket.gateway';
       Shift,
       MenuItems,
       Observation,
+      StockMovement,
+      Ingredient,
     ]),
     UsersModule,
     ShiftModule,
