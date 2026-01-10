@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, QueryRunner } from 'typeorm';
+import { Repository, DataSource, QueryRunner, Raw } from 'typeorm';
 import { MealShift } from '../entities/meal-shift.entity';
 import { CreateMealShiftDto } from '../dto/create-meal-shift.dto';
 import { UpdateMealShiftDto } from '../dto/update-meal-shift.dto';
@@ -48,6 +48,7 @@ export class MealShiftService {
       // 2. Crear el MealShift
       const mealShift = queryRunner.manager.create(MealShift, {
         ...createMealShiftDto,
+        date: new Date(createMealShiftDto.date).toISOString().split('T')[0], // Ensure date is stored as YYYY-MM-DD
         companyId,
         quantityAvailable:
           createMealShiftDto.quantityAvailable ?? quantityProduced,
@@ -172,12 +173,15 @@ export class MealShiftService {
       `Checking production for menuItemId: ${menuItemId}, shiftId: ${shiftId}, date: ${date.toISOString()}, companyId: ${companyId}`,
     );
 
+    // Convert date to YYYY-MM-DD string to avoid timezone issues with the DB query
+    const dateString = date.toISOString().split('T')[0];
+
     const mealShift = await this.mealShiftRepository.findOne({
       where: {
         menuItemId,
         shiftId,
         companyId,
-        date,
+        date: Raw((alias) => `${alias} = :date`, { date: dateString }),
       },
     });
 

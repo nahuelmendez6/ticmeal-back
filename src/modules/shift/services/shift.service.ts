@@ -143,7 +143,7 @@ export class ShiftService {
     updateDto: UpdateShiftDto,
     companyId: number,
   ): Promise<Shift> {
-    const { menuItemIds, ...shiftData } = updateDto;
+    const { menuItemIds, date, ...shiftData } = updateDto; // Extract date
     const shiftToUpdate = await this.findOneForTenant(id, companyId);
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -166,6 +166,10 @@ export class ShiftService {
             );
           }
 
+          // Determine the date to use for production check
+          // If date is provided in DTO, use it. Otherwise, fallback to current date.
+          const dateForProductionCheck = date ? new Date(date) : new Date();
+
           for (const item of menuItems) {
             if (item.type === MenuItemType.PRODUCTO_COMPUESTO) {
               // aca se evalua sin un item ha sido producido para este turno y fecha
@@ -173,7 +177,7 @@ export class ShiftService {
                 await this.mealShiftService.isMenuItemProducedForShift(
                   item.id,
                   id, // ID del turno que se está actualizando
-                  new Date(),
+                  dateForProductionCheck, // Use the provided date or fallback
                   companyId,
                 );
               if (!isProduced) {

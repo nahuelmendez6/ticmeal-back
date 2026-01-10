@@ -13,6 +13,7 @@ import { AdminAuthModule } from './modules/admin_auth/admin-auth.module';
 import { BackofficeUsersModule } from './modules/users_backoffice/backoffice-users.module';
 import { TenantContextService } from './common/context/tenant-context.service';
 import { TenantInterceptor } from './common/interceptors/tenant-interceptor';
+import { TasksModule } from './modules/tasks/tasks.module';
 
 /**
  * Modulo raiz de la aplicación
@@ -35,6 +36,7 @@ import { TenantInterceptor } from './common/interceptors/tenant-interceptor';
     ReportsModule,
     AdminAuthModule,
     BackofficeUsersModule,
+    TasksModule,
   ],
   providers: [TenantContextService, TenantInterceptor],
   exports: [TenantContextService, TenantInterceptor],

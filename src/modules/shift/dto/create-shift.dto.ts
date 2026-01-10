@@ -6,6 +6,7 @@ import {
   IsArray,
   IsInt,
   Matches,
+  IsDateString,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -58,4 +59,13 @@ export class CreateShiftDto {
   @IsInt({ each: true })
   @IsOptional()
   menuItemIds?: number[];
+
+  @ApiProperty({
+    description: 'Fecha para la cual se aplica la actualización del turno (YYYY-MM-DD)',
+    example: '2026-01-09',
+    required: false,
+  })
+  @IsDateString()
+  @IsOptional()
+  date?: string;
 }

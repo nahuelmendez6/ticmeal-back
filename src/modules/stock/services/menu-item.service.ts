@@ -138,7 +138,7 @@ export class MenuItemService {
     });
 
     for (const item of menuItems) {
-      let isProduced = true;
+      let isProduced = item.type !== MenuItemType.PRODUCTO_COMPUESTO;
       if (shiftId && date && item.type === MenuItemType.PRODUCTO_COMPUESTO) {
         isProduced = await this.mealShiftService.isMenuItemProducedForShift(
           item.id,
