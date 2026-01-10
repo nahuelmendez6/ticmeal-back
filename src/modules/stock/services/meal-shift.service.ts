@@ -1,13 +1,12 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, QueryRunner, Raw } from 'typeorm';
+import { Repository, DataSource, Raw } from 'typeorm';
 import { MealShift } from '../entities/meal-shift.entity';
 import { CreateMealShiftDto } from '../dto/create-meal-shift.dto';
 import { UpdateMealShiftDto } from '../dto/update-meal-shift.dto';
 import { MenuItems } from '../entities/menu-items.entity';
-import { StockMovement } from '../entities/stock-movement.entity';
 import { MovementType } from '../enums/enums';
-import { Ingredient } from '../entities/ingredient.entity';
+import { StockService } from './stock.service';
 
 @Injectable()
 export class MealShiftService {
@@ -16,8 +15,7 @@ export class MealShiftService {
   constructor(
     @InjectRepository(MealShift)
     private readonly mealShiftRepository: Repository<MealShift>,
-    @InjectRepository(StockMovement)
-    private readonly stockMovementRepository: Repository<StockMovement>,
+    private readonly stockService: StockService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -33,7 +31,6 @@ export class MealShiftService {
     await queryRunner.startTransaction();
 
     try {
-      // 1. Obtener el MenuItem y sus ingredientes de receta
       const menuItem = await queryRunner.manager.findOne(MenuItems, {
         where: { id: menuItemId, companyId },
         relations: ['recipeIngredients', 'recipeIngredients.ingredient'],
@@ -45,40 +42,48 @@ export class MealShiftService {
         );
       }
 
-      // 2. Crear el MealShift
       const mealShift = queryRunner.manager.create(MealShift, {
         ...createMealShiftDto,
-        date: new Date(createMealShiftDto.date).toISOString().split('T')[0], // Ensure date is stored as YYYY-MM-DD
+        date: new Date(createMealShiftDto.date).toISOString().split('T')[0],
         companyId,
         quantityAvailable:
           createMealShiftDto.quantityAvailable ?? quantityProduced,
       });
       const savedMealShift = await queryRunner.manager.save(mealShift);
 
-      // 3. Registrar movimiento de stock para el MenuItem (PRODUCCION -> IN)
-      const menuItemMovement = this.stockMovementRepository.create({
-        menuItem,
-        quantity: quantityProduced,
-        movementType: MovementType.IN,
-        reason: 'PRODUCCION',
-        unit: 'unit' as any,
-        company: { id: companyId },
-        performedBy: userId ? { id: userId } : null,
-      });
-      await queryRunner.manager.save(menuItemMovement);
-
-      // Actualizar stock del MenuItem
-      menuItem.stock = (menuItem.stock || 0) + quantityProduced;
-      await queryRunner.manager.save(menuItem);
-
-      // 4. Registrar movimientos de stock para los ingredientes (PRODUCCION -> OUT)
-      await this.deductIngredientsStock(
-        queryRunner,
-        menuItem,
-        quantityProduced,
+      // Register stock movement for the produced MenuItem (IN)
+      await this.stockService.registerMovement(
+        {
+          menuItemId: menuItem.id,
+          quantity: quantityProduced,
+          movementType: MovementType.IN,
+          reason: 'Producción',
+          unitCost: menuItem.price,
+        },
         companyId,
         userId,
+        queryRunner,
       );
+
+      // Register stock movements for the consumed ingredients (OUT)
+      if (menuItem.recipeIngredients && menuItem.recipeIngredients.length > 0) {
+        for (const recipeIngredient of menuItem.recipeIngredients) {
+          const ingredient = recipeIngredient.ingredient;
+          const quantityRequired = recipeIngredient.quantity * quantityProduced;
+
+          await this.stockService.registerMovement(
+            {
+              ingredientId: ingredient.id,
+              quantity: quantityRequired,
+              movementType: MovementType.OUT,
+              reason: `Producción de ${menuItem.name}`,
+            },
+            companyId,
+            userId,
+            queryRunner,
+          );
+        }
+      }
 
       await queryRunner.commitTransaction();
       return savedMealShift;
@@ -87,40 +92,6 @@ export class MealShiftService {
       throw err;
     } finally {
       await queryRunner.release();
-    }
-  }
-
-  private async deductIngredientsStock(
-    queryRunner: QueryRunner,
-    menuItem: MenuItems,
-    quantityProduced: number,
-    companyId: number,
-    userId?: number,
-  ) {
-    if (menuItem.recipeIngredients && menuItem.recipeIngredients.length > 0) {
-      for (const recipeIngredient of menuItem.recipeIngredients) {
-        const ingredient = recipeIngredient.ingredient;
-        const quantityRequired = recipeIngredient.quantity * quantityProduced;
-
-        // Actualizar stock del ingrediente
-        await queryRunner.manager.decrement(
-          Ingredient,
-          { id: ingredient.id },
-          'quantityInStock',
-          quantityRequired,
-        );
-
-        const ingredientMovement = this.stockMovementRepository.create({
-          ingredient,
-          quantity: quantityRequired,
-          movementType: MovementType.OUT,
-          reason: 'meal',
-          unit: ingredient.unit,
-          company: { id: companyId },
-          performedBy: userId ? { id: userId } : null,
-        });
-        await queryRunner.manager.save(ingredientMovement);
-      }
     }
   }
 
@@ -173,7 +144,6 @@ export class MealShiftService {
       `Checking production for menuItemId: ${menuItemId}, shiftId: ${shiftId}, date: ${date.toISOString()}, companyId: ${companyId}`,
     );
 
-    // Convert date to YYYY-MM-DD string to avoid timezone issues with the DB query
     const dateString = date.toISOString().split('T')[0];
 
     const mealShift = await this.mealShiftRepository.findOne({
@@ -191,3 +161,4 @@ export class MealShiftService {
     return result;
   }
 }
+

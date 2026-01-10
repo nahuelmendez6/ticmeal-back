@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Ingredient } from '../entities/ingredient.entity';
@@ -10,7 +6,7 @@ import { CreateIngredientDto } from '../dto/create-ingredient.dto';
 import { IngredientCategory } from '../entities/ingredient-category.entity';
 import { UpdateIngredientDto } from '../dto/update-ingredient.dto';
 import { IngredientCategoryService } from './ingredient-category.service';
-import { StockMovement } from '../entities/stock-movement.entity';
+import { StockService } from './stock.service'; // Import StockService
 import { MovementType } from '../enums/enums';
 
 @Injectable()
@@ -19,21 +15,21 @@ export class IngredientService {
     @InjectRepository(Ingredient)
     private readonly ingredientRepo: Repository<Ingredient>,
     private readonly ingredientCategoryService: IngredientCategoryService,
+    private readonly stockService: StockService, // Inject StockService
     private readonly dataSource: DataSource,
   ) {}
 
-  /**
-   * Crea un nuevo ingrediente para la empresa.
-   * Valida que la categoría del ingrediente (si se proporciona) esté disponible para el tenant.
-   */
   async create(
     createDto: CreateIngredientDto,
     companyId: number,
     userId: number,
   ): Promise<Ingredient> {
-    const { categoryId, category, ...ingredientData } = createDto;
+    const {
+      categoryId,
+      quantityInStock: initialStock,
+      ...ingredientData
+    } = createDto;
 
-    // Si se incluye una categoría, validar su disponibilidad para el tenant.
     if (categoryId) {
       await this.ingredientCategoryService.validateCategoryAvailability(
         categoryId,
@@ -46,27 +42,33 @@ export class IngredientService {
     await queryRunner.startTransaction();
 
     try {
+      // Create ingredient with 0 stock initially
       const newIngredient = queryRunner.manager.create(Ingredient, {
         ...ingredientData,
+        quantityInStock: 0, // Stock starts at 0
         companyId: companyId,
         category: categoryId ? { id: categoryId } : null,
       });
       const savedIngredient = await queryRunner.manager.save(newIngredient);
 
-      if (savedIngredient.quantityInStock > 0) {
-        const stockMovement = queryRunner.manager.create(StockMovement, {
-          ingredient: savedIngredient,
-          quantity: savedIngredient.quantityInStock,
-          movementType: MovementType.IN,
-          reason: 'Carga inicial',
-          unit: savedIngredient.unit,
+      // If there's an initial stock, register it as a movement
+      if (initialStock && initialStock > 0) {
+        await this.stockService.registerMovement(
+          {
+            ingredientId: savedIngredient.id,
+            quantity: initialStock,
+            movementType: MovementType.IN,
+            reason: 'Carga inicial',
+            unitCost: createDto.cost,
+          },
           companyId,
-          performedBy: { id: userId },
-        });
-        await queryRunner.manager.save(stockMovement);
+          userId,
+          queryRunner, // Pass the runner to stay in the same transaction
+        );
       }
 
       await queryRunner.commitTransaction();
+      // Refetch to get the updated stock value
       return this.findOneForTenant(savedIngredient.id, companyId);
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -76,9 +78,6 @@ export class IngredientService {
     }
   }
 
-  /**
-   * Obtiene todos los ingredientes disponibles para una empresa.
-   */
   async findAllForTenant(companyId: number): Promise<Ingredient[]> {
     return this.ingredientRepo.find({
       where: { companyId },
@@ -86,12 +85,10 @@ export class IngredientService {
     });
   }
 
-  /**
-   * Busca un ingrediente por ID, verificando que pertenezca al tenant.
-   */
   async findOneForTenant(id: number, companyId: number): Promise<Ingredient> {
     const ingredient = await this.ingredientRepo.findOne({
       where: { id, companyId },
+      relations: ['category'], // Eager load category
     });
 
     if (!ingredient) {
@@ -102,9 +99,6 @@ export class IngredientService {
     return ingredient;
   }
 
-  /**
-   * Actualiza un ingrediente, asegurando que solo se modifiquen los de la empresa.
-   */
   async update(
     id: number,
     updateDto: UpdateIngredientDto,
@@ -116,68 +110,59 @@ export class IngredientService {
     await queryRunner.startTransaction();
 
     try {
-      // 1. Se busca el ingrediente DENTRO de la transacción para asegurar que sea manejado por el mismo EntityManager.
       const ingredientToUpdate = await queryRunner.manager.findOne(Ingredient, {
         where: { id, companyId },
-        relations: { category: true },
       });
 
       if (!ingredientToUpdate) {
-        throw new NotFoundException(
-          `Ingrediente con ID ${id} no encontrado o sin permisos.`,
-        );
+        throw new NotFoundException(`Ingrediente con ID ${id} no encontrado.`);
       }
 
       const originalStock = ingredientToUpdate.quantityInStock;
       const {
+        quantityInStock: newStock,
         categoryId,
-        category,
-        companyId: _dtoCompanyId,
         ...updateData
       } = updateDto;
 
-      // 2. Si se actualiza la categoría, validar su disponibilidad.
-      if (categoryId && categoryId !== ingredientToUpdate.category?.id) {
-        await this.ingredientCategoryService.validateCategoryAvailability(
-          categoryId,
-          companyId,
-        );
+      // Update non-stock fields first
+      queryRunner.manager.merge(Ingredient, ingredientToUpdate, updateData);
+      if (updateDto.hasOwnProperty('categoryId')) {
+        if (categoryId) {
+          await this.ingredientCategoryService.validateCategoryAvailability(
+            categoryId,
+            companyId,
+          );
+          ingredientToUpdate.category =
+            { id: categoryId } as IngredientCategory;
+        } else {
+          ingredientToUpdate.category = null;
+        }
       }
-      const newStock = updateDto.quantityInStock;
-      const stockChanged = newStock !== undefined && newStock !== originalStock;
+      await queryRunner.manager.save(ingredientToUpdate);
 
-      if (stockChanged) {
+      // If stock has changed, register a movement
+      if (newStock !== undefined && newStock !== originalStock) {
         const quantityDiff = newStock - originalStock;
         if (quantityDiff !== 0) {
-          const stockMovement = queryRunner.manager.create(StockMovement, {
-            ingredient: ingredientToUpdate,
-            quantity: Math.abs(quantityDiff),
-            movementType: quantityDiff > 0 ? MovementType.IN : MovementType.OUT,
-            reason: 'Ajuste de stock',
-            unit: ingredientToUpdate.unit,
+          await this.stockService.registerMovement(
+            {
+              ingredientId: id,
+              quantity: Math.abs(quantityDiff),
+              movementType:
+                quantityDiff > 0 ? MovementType.IN : MovementType.OUT,
+              reason: 'Ajuste de stock',
+              unitCost: updateDto.cost,
+            },
             companyId,
-            performedBy: { id: userId },
-          });
-          await queryRunner.manager.save(stockMovement);
+            userId,
+            queryRunner,
+          );
         }
       }
 
-      // Aplicar las actualizaciones y guardar.
-      queryRunner.manager.merge(Ingredient, ingredientToUpdate, updateData);
-
-      // Si se proporciona un nuevo categoryId, se actualiza la relación.
-      if (updateDto.hasOwnProperty('categoryId')) {
-        ingredientToUpdate.category = categoryId
-          ? ({ id: categoryId } as IngredientCategory)
-          : null;
-      }
-
-      await queryRunner.manager.save(ingredientToUpdate);
-
       await queryRunner.commitTransaction();
-      // Se retorna la entidad actualizada. findOneForTenant haría una consulta extra innecesaria.
-      // Las relaciones eager como 'category' ya vienen cargadas.
-      return ingredientToUpdate;
+      return this.findOneForTenant(id, companyId);
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
@@ -186,21 +171,14 @@ export class IngredientService {
     }
   }
 
-  /**
-   * Elimina un ingrediente, asegurando que solo se puedan eliminar los de la empresa.
-   */
   async remove(id: number, companyId: number): Promise<boolean> {
-    // Usamos el método `delete` con el filtro estricto de `companyId`.
     const result = await this.ingredientRepo.delete({ id, companyId });
-
-    // Si no se afectó ninguna fila, significa que el ingrediente no se encontró
-    // para ese tenant específico.
     if (result.affected === 0) {
       throw new NotFoundException(
         `Ingrediente con ID ${id} no encontrado en su alcance.`,
       );
     }
-
     return true;
   }
 }
+

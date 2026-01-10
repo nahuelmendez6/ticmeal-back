@@ -4,21 +4,18 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository, DataSource } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { MenuItems } from '../entities/menu-items.entity';
 import { Category } from '../entities/category.entity';
 import { CreateMenuItemDto } from '../dto/create-menu-item-dto';
 import { UpdateMenuItemDto } from '../dto/update-menu-item-dto';
-import { TenantAwareRepository } from 'src/common/repository/tenant-aware.repository';
 import { CategoryService } from './category.service';
 import { IngredientService } from './ingredient.service';
-import { StockMovement } from '../entities/stock-movement.entity';
 import { MovementType } from '../enums/enums';
 import { MenuItemType } from '../enums/menuItemTypes';
 import { RecipeIngredient } from '../entities/recipe-ingredient.entity';
 import { MealShiftService } from './meal-shift.service';
-
-
+import { StockService } from './stock.service';
 
 @Injectable()
 export class MenuItemService {
@@ -30,14 +27,10 @@ export class MenuItemService {
     private readonly categoryService: CategoryService,
     private readonly ingredientService: IngredientService,
     private readonly mealShiftService: MealShiftService,
+    private readonly stockService: StockService,
     private readonly dataSource: DataSource,
   ) {}
 
-  /**
-   * Crea un nuevo ítem de menú, incluyendo su receta.
-   * Valida que la categoría y los ingredientes pertenezcan al tenant.
-   * Utiliza una transacción para asegurar la atomicidad de la operación.
-   */
   async create(
     createDto: CreateMenuItemDto,
     companyId: number,
@@ -46,10 +39,10 @@ export class MenuItemService {
     const {
       recipeIngredients: recipeDto,
       categoryId,
+      stock: initialStock,
       ...menuItemData
     } = createDto;
 
-    // Validar categoría si se proporciona
     if (categoryId) {
       await this.categoryService.validateCategoryAvailability(
         categoryId,
@@ -57,7 +50,6 @@ export class MenuItemService {
       );
     }
 
-    // Validar todos los ingredientes de la receta
     if (recipeDto && recipeDto.length > 0) {
       const ingredientIds = recipeDto.map((ri) => ri.ingredientId);
       const ingredients =
@@ -80,6 +72,7 @@ export class MenuItemService {
     try {
       const newMenuItem = queryRunner.manager.create(MenuItems, {
         ...menuItemData,
+        stock: 0, // Stock starts at 0
         companyId,
         category: categoryId ? { id: categoryId } : null,
       });
@@ -94,22 +87,22 @@ export class MenuItemService {
           }),
         );
         await queryRunner.manager.save(recipe);
-      } else if (savedMenuItem.stock > 0) {
-        // Es un ítem sin receta, registrar movimiento de stock inicial
-        const stockMovement = queryRunner.manager.create(StockMovement, {
-          menuItem: savedMenuItem,
-          quantity: savedMenuItem.stock,
-          movementType: MovementType.IN,
-          reason: 'Carga inicial',
-          unit: 'unit' as any,
+      } else if (initialStock && initialStock > 0) {
+        await this.stockService.registerMovement(
+          {
+            menuItemId: savedMenuItem.id,
+            quantity: initialStock,
+            movementType: MovementType.IN,
+            reason: 'Carga inicial',
+            unitCost: createDto.price,
+          },
           companyId,
-          performedBy: { id: userId },
-        });
-        await queryRunner.manager.save(stockMovement);
+          userId,
+          queryRunner,
+        );
       }
 
       await queryRunner.commitTransaction();
-      // Volvemos a buscar la entidad completa con sus relaciones
       return this.findOneForTenant(savedMenuItem.id, companyId);
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -119,9 +112,6 @@ export class MenuItemService {
     }
   }
 
-  /**
-   * Obtiene todos los ítems de menú para una empresa.
-   */
   async findAllForTenant(
     companyId: number,
     shiftId?: number,
@@ -153,11 +143,7 @@ export class MenuItemService {
     return menuItems;
   }
 
-  /**
-   * Busca un ítem de menú por ID, verificando que pertenezca al tenant.
-   */
   async findOneForTenant(id: number, companyId: number): Promise<MenuItems> {
-    // Se reemplaza el helper por el método estándar de TypeORM para poder incluir relaciones.
     const menuItem = await this.menuItemRepo.findOne({
       where: { id, companyId },
       relations: [
@@ -176,69 +162,43 @@ export class MenuItemService {
     return menuItem;
   }
 
-  /**
-   * Actualiza un ítem de menú.
-   * La actualización de la receta es un reemplazo completo.
-   */
   async update(
     id: number,
     updateDto: UpdateMenuItemDto,
     companyId: number,
     userId: number,
   ): Promise<MenuItems> {
-    // findOneForTenant valida la pertenencia y carga las relaciones existentes
-    const menuItemToUpdate = await this.findOneForTenant(id, companyId);
-    const {
-      recipeIngredients: recipeDto,
-      categoryId,
-      ...menuItemData
-    } = updateDto;
-
-    const originalStock = menuItemToUpdate.stock;
-
-    // Validar nueva categoría si cambia
-    if (categoryId && categoryId !== menuItemToUpdate.category?.id) {
-      await this.categoryService.validateCategoryAvailability(
-        categoryId,
-        companyId,
-      );
-    }
-
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      const newStock = menuItemData.stock;
-      const stockChanged = newStock !== undefined && newStock !== originalStock;
-      const hasRecipeAfterUpdate =
-        recipeDto != null
-          ? recipeDto.length > 0
-          : menuItemToUpdate.recipeIngredients &&
-            menuItemToUpdate.recipeIngredients.length > 0;
+      const menuItemToUpdate = await queryRunner.manager.findOne(MenuItems, {
+        where: { id, companyId },
+        relations: ['recipeIngredients'],
+      });
 
-      if (stockChanged && !hasRecipeAfterUpdate) {
-        const quantityDiff = newStock - originalStock;
-        if (quantityDiff !== 0) {
-          const stockMovement = queryRunner.manager.create(StockMovement, {
-            menuItem: menuItemToUpdate,
-            quantity: Math.abs(quantityDiff),
-            movementType: quantityDiff > 0 ? MovementType.IN : MovementType.OUT,
-            reason: 'Ajuste de stock',
-            unit: 'unit' as any,
-            companyId,
-            performedBy: { id: userId },
-          });
-          await queryRunner.manager.save(stockMovement);
-        }
+      if (!menuItemToUpdate) {
+        throw new NotFoundException(`Ítem de menú con ID ${id} no encontrado.`);
       }
 
-      // Actualizar datos del MenuItem
-      // Se actualizan las propiedades del DTO en la entidad cargada.
+      const {
+        recipeIngredients: recipeDto,
+        categoryId,
+        stock: newStock,
+        ...menuItemData
+      } = updateDto;
+      const originalStock = menuItemToUpdate.stock;
+
+      if (categoryId && categoryId !== menuItemToUpdate.category?.id) {
+        await this.categoryService.validateCategoryAvailability(
+          categoryId,
+          companyId,
+        );
+      }
+
       queryRunner.manager.merge(MenuItems, menuItemToUpdate, menuItemData);
 
-      // Si se proporciona un nuevo categoryId, se actualiza la relación.
-      // Se asigna un objeto parcial a la relación 'category'.
       if (updateDto.hasOwnProperty('categoryId')) {
         menuItemToUpdate.category = categoryId
           ? ({ id: categoryId } as Category)
@@ -246,15 +206,12 @@ export class MenuItemService {
       }
 
       await queryRunner.manager.save(menuItemToUpdate);
-      // Si se proporciona una nueva receta, reemplazar la anterior
+
       if (recipeDto) {
-        // Eliminar receta anterior
         await queryRunner.manager.delete(RecipeIngredient, {
           menuItem: { id },
         });
-        // Crear y guardar la nueva receta
         if (recipeDto.length > 0) {
-          // (La validación de ingredientes se omite aquí por brevedad, pero debería hacerse como en `create`)
           const newRecipe = recipeDto.map((ri) =>
             queryRunner.manager.create(RecipeIngredient, {
               menuItem: { id },
@@ -263,6 +220,31 @@ export class MenuItemService {
             }),
           );
           await queryRunner.manager.save(newRecipe);
+        }
+      }
+
+      const hasRecipe =
+        (recipeDto && recipeDto.length > 0) ||
+        (!recipeDto &&
+          menuItemToUpdate.recipeIngredients &&
+          menuItemToUpdate.recipeIngredients.length > 0);
+
+      if (!hasRecipe && newStock !== undefined && newStock !== originalStock) {
+        const quantityDiff = newStock - originalStock;
+        if (quantityDiff !== 0) {
+          await this.stockService.registerMovement(
+            {
+              menuItemId: id,
+              quantity: Math.abs(quantityDiff),
+              movementType:
+                quantityDiff > 0 ? MovementType.IN : MovementType.OUT,
+              reason: 'Ajuste de stock',
+              unitCost: updateDto.price,
+            },
+            companyId,
+            userId,
+            queryRunner,
+          );
         }
       }
 
@@ -276,9 +258,6 @@ export class MenuItemService {
     }
   }
 
-  /**
-   * Elimina un ítem de menú. La relación con RecipeIngredient se elimina en cascada.
-   */
   async remove(id: number, companyId: number): Promise<boolean> {
     const result = await this.menuItemRepo.delete({ id, companyId });
 
@@ -291,3 +270,4 @@ export class MenuItemService {
     return true;
   }
 }
+
