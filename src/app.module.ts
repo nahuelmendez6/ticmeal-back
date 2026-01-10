@@ -14,6 +14,8 @@ import { BackofficeUsersModule } from './modules/users_backoffice/backoffice-use
 import { TenantContextService } from './common/context/tenant-context.service';
 import { TenantInterceptor } from './common/interceptors/tenant-interceptor';
 import { TasksModule } from './modules/tasks/tasks.module';
+import { PurchasesModule } from './modules/purchases/purchases.module';
+import { SuppliersModule } from './modules/suppliers/suppliers.module';
 
 /**
  * Modulo raiz de la aplicación
@@ -37,6 +39,8 @@ import { TasksModule } from './modules/tasks/tasks.module';
     AdminAuthModule,
     BackofficeUsersModule,
     TasksModule,
+    PurchasesModule,
+    SuppliersModule,
   ],
   providers: [TenantContextService, TenantInterceptor],
   exports: [TenantContextService, TenantInterceptor],
