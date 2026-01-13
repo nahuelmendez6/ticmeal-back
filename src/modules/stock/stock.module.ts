@@ -22,6 +22,8 @@ import { MealShiftService } from './services/meal-shift.service';
 import { ShiftModule } from '../shift/shift.module';
 import { StockController } from './controllers/stock.controller';
 import { StockService } from './services/stock.service';
+import { IngredientLot } from './entities/ingredient-lot.entity';
+import { MenuItemLot } from './entities/menu-item-lot.entity';
 
 @Module({
   imports: [
@@ -33,6 +35,8 @@ import { StockService } from './services/stock.service';
       RecipeIngredient,
       StockMovement,
       MealShift,
+      IngredientLot,
+      MenuItemLot,
     ]),
     ShiftModule,
   ],

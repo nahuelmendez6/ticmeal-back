@@ -5,6 +5,7 @@ import {
   IsString,
   IsEnum,
   IsDateString,
+  ValidateIf,
 } from 'class-validator';
 import { MovementType } from '../enums/enums';
 
@@ -25,21 +26,37 @@ export class CreateStockMovementDto {
   @IsNumber()
   quantity: number;
 
-  @IsOptional()
-  @IsNumber()
-  unitCost?: number;
-
-  @IsOptional()
+  @IsOptional() // Se hace opcional
   @IsString()
-  lot?: string;
+  reason?: string;
+
+  // --- Campos para Lotes ---
+
+  // Para movimientos de SALIDA, se debe especificar el ID del lote a consumir
+  @ValidateIf((o) => o.movementType === MovementType.OUT)
+  @IsNumber()
+  @IsOptional() // Se puede usar uno u otro
+  ingredientLotId?: number;
+
+  @ValidateIf((o) => o.movementType === MovementType.OUT)
+  @IsNumber()
+  @IsOptional()
+  menuItemLotId?: number;
+
+  // Para movimientos de ENTRADA, estos campos describen el lote
+  @ValidateIf((o) => o.movementType === MovementType.IN)
+  @IsString()
+  @IsOptional()
+  lotNumber?: string;
+
+  @ValidateIf((o) => o.movementType === MovementType.IN)
+  @IsNumber()
+  @IsOptional()
+  unitCost?: number;
 
   @IsOptional()
   @IsDateString()
   expirationDate?: string;
-
-  @IsNotEmpty()
-  @IsString()
-  reason: string;
 
   @IsOptional()
   @IsString()

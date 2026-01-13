@@ -4,6 +4,8 @@ import { MenuItems } from './menu-items.entity';
 import { Ingredient } from './ingredient.entity';
 import { MovementType, IngredientUnit } from '../enums/enums';
 import { User } from 'src/modules/users/entities/user.entity';
+import { IngredientLot } from './ingredient-lot.entity';
+import { MenuItemLot } from './menu-item-lot.entity';
 
 @Entity('stock_movements')
 export class StockMovement extends BaseTenantEntity {
@@ -23,6 +25,14 @@ export class StockMovement extends BaseTenantEntity {
   @JoinColumn({ name: 'ingredientId' })
   ingredient: Ingredient | null;
 
+  @ManyToOne(() => IngredientLot, (lot) => lot.stockMovements, { nullable: true })
+  @JoinColumn({ name: 'ingredientLotId' })
+  ingredientLot: IngredientLot | null;
+
+  @ManyToOne(() => MenuItemLot, (lot) => lot.stockMovements, { nullable: true })
+  @JoinColumn({ name: 'menuItemLotId' })
+  menuItemLot: MenuItemLot | null;
+
   @Column({ type: 'enum', enum: MovementType })
   movementType: MovementType;
 
@@ -34,28 +44,6 @@ export class StockMovement extends BaseTenantEntity {
 
   @Column({ type: 'enum', enum: IngredientUnit })
   unit: IngredientUnit;
-
-  @Column({
-    type: 'float',
-    nullable: true,
-    comment: 'Costo unitario del producto en este movimiento',
-  })
-  unitCost: number | null;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Lote del producto',
-  })
-  lot: string | null;
-
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Fecha de vencimiento del lote',
-  })
-  expirationDate: Date | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   reason: string | null;

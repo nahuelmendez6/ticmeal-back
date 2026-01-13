@@ -38,12 +38,6 @@ export class CreateMenuItemDto {
   description?: string;
 
   @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Type(() => Number)
-  stock?: number = 0;
-
-  @IsOptional()
   @IsString()
   iconName?: string;
 

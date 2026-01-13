@@ -6,7 +6,7 @@ import { CreateIngredientDto } from '../dto/create-ingredient.dto';
 import { IngredientCategory } from '../entities/ingredient-category.entity';
 import { UpdateIngredientDto } from '../dto/update-ingredient.dto';
 import { IngredientCategoryService } from './ingredient-category.service';
-import { StockService } from './stock.service'; // Import StockService
+import { StockService } from './stock.service';
 import { MovementType } from '../enums/enums';
 
 @Injectable()
@@ -15,7 +15,7 @@ export class IngredientService {
     @InjectRepository(Ingredient)
     private readonly ingredientRepo: Repository<Ingredient>,
     private readonly ingredientCategoryService: IngredientCategoryService,
-    private readonly stockService: StockService, // Inject StockService
+    private readonly stockService: StockService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -26,7 +26,7 @@ export class IngredientService {
   ): Promise<Ingredient> {
     const {
       categoryId,
-      quantityInStock: initialStock,
+      // quantityInStock is no longer managed here
       ...ingredientData
     } = createDto;
 
@@ -42,33 +42,16 @@ export class IngredientService {
     await queryRunner.startTransaction();
 
     try {
-      // Create ingredient with 0 stock initially
       const newIngredient = queryRunner.manager.create(Ingredient, {
         ...ingredientData,
-        quantityInStock: 0, // Stock starts at 0
         companyId: companyId,
         category: categoryId ? { id: categoryId } : null,
       });
       const savedIngredient = await queryRunner.manager.save(newIngredient);
 
-      // If there's an initial stock, register it as a movement
-      if (initialStock && initialStock > 0) {
-        await this.stockService.registerMovement(
-          {
-            ingredientId: savedIngredient.id,
-            quantity: initialStock,
-            movementType: MovementType.IN,
-            reason: 'Carga inicial',
-            unitCost: createDto.cost,
-          },
-          companyId,
-          userId,
-          queryRunner, // Pass the runner to stay in the same transaction
-        );
-      }
+      // Initial stock must now be added via an explicit stock movement, not on creation.
 
       await queryRunner.commitTransaction();
-      // Refetch to get the updated stock value
       return this.findOneForTenant(savedIngredient.id, companyId);
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -79,16 +62,26 @@ export class IngredientService {
   }
 
   async findAllForTenant(companyId: number): Promise<Ingredient[]> {
-    return this.ingredientRepo.find({
+    const ingredients = await this.ingredientRepo.find({
       where: { companyId },
+      relations: ['category', 'lots'],
       order: { name: 'ASC' },
     });
+
+    // Calculate stock for each ingredient
+    for (const ingredient of ingredients) {
+      ingredient.quantityInStock = ingredient.lots
+        ? ingredient.lots.reduce((sum, lot) => sum + lot.quantity, 0)
+        : 0;
+    }
+
+    return ingredients;
   }
 
   async findOneForTenant(id: number, companyId: number): Promise<Ingredient> {
     const ingredient = await this.ingredientRepo.findOne({
       where: { id, companyId },
-      relations: ['category'], // Eager load category
+      relations: ['category', 'lots'],
     });
 
     if (!ingredient) {
@@ -96,6 +89,12 @@ export class IngredientService {
         `Ingrediente con ID ${id} no encontrado o sin permisos.`,
       );
     }
+
+    // Calculate stock from lots
+    ingredient.quantityInStock = ingredient.lots
+      ? ingredient.lots.reduce((sum, lot) => sum + lot.quantity, 0)
+      : 0;
+
     return ingredient;
   }
 
@@ -118,15 +117,15 @@ export class IngredientService {
         throw new NotFoundException(`Ingrediente con ID ${id} no encontrado.`);
       }
 
-      const originalStock = ingredientToUpdate.quantityInStock;
       const {
-        quantityInStock: newStock,
+        // quantityInStock is no longer managed here
         categoryId,
         ...updateData
       } = updateDto;
 
-      // Update non-stock fields first
       queryRunner.manager.merge(Ingredient, ingredientToUpdate, updateData);
+
+      ingredientToUpdate.companyId = companyId;
       if (updateDto.hasOwnProperty('categoryId')) {
         if (categoryId) {
           await this.ingredientCategoryService.validateCategoryAvailability(
@@ -141,25 +140,8 @@ export class IngredientService {
       }
       await queryRunner.manager.save(ingredientToUpdate);
 
-      // If stock has changed, register a movement
-      if (newStock !== undefined && newStock !== originalStock) {
-        const quantityDiff = newStock - originalStock;
-        if (quantityDiff !== 0) {
-          await this.stockService.registerMovement(
-            {
-              ingredientId: id,
-              quantity: Math.abs(quantityDiff),
-              movementType:
-                quantityDiff > 0 ? MovementType.IN : MovementType.OUT,
-              reason: 'Ajuste de stock',
-              unitCost: updateDto.cost,
-            },
-            companyId,
-            userId,
-            queryRunner,
-          );
-        }
-      }
+      // The block that caused the error has been removed.
+      // Stock adjustments must be done via explicit calls to StockService.
 
       await queryRunner.commitTransaction();
       return this.findOneForTenant(id, companyId);

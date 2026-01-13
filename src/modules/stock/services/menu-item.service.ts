@@ -39,7 +39,7 @@ export class MenuItemService {
     const {
       recipeIngredients: recipeDto,
       categoryId,
-      stock: initialStock,
+      // stock is no longer managed here
       ...menuItemData
     } = createDto;
 
@@ -72,7 +72,6 @@ export class MenuItemService {
     try {
       const newMenuItem = queryRunner.manager.create(MenuItems, {
         ...menuItemData,
-        stock: 0, // Stock starts at 0
         companyId,
         category: categoryId ? { id: categoryId } : null,
       });
@@ -87,20 +86,8 @@ export class MenuItemService {
           }),
         );
         await queryRunner.manager.save(recipe);
-      } else if (initialStock && initialStock > 0) {
-        await this.stockService.registerMovement(
-          {
-            menuItemId: savedMenuItem.id,
-            quantity: initialStock,
-            movementType: MovementType.IN,
-            reason: 'Carga inicial',
-            unitCost: createDto.cost,
-          },
-          companyId,
-          userId,
-          queryRunner,
-        );
       }
+      // Initial stock must now be added via an explicit stock movement, not on creation.
 
       await queryRunner.commitTransaction();
       return this.findOneForTenant(savedMenuItem.id, companyId);
@@ -123,11 +110,17 @@ export class MenuItemService {
         'category',
         'recipeIngredients',
         'recipeIngredients.ingredient',
+        'lots', // Eagerly load lots
       ],
       order: { name: 'ASC' },
     });
 
     for (const item of menuItems) {
+      // Calculate stock from lots
+      item.stock = item.lots
+        ? item.lots.reduce((sum, lot) => sum + lot.quantity, 0)
+        : 0;
+
       let isProduced = item.type !== MenuItemType.PRODUCTO_COMPUESTO;
       if (shiftId && date && item.type === MenuItemType.PRODUCTO_COMPUESTO) {
         isProduced = await this.mealShiftService.isMenuItemProducedForShift(
@@ -150,6 +143,7 @@ export class MenuItemService {
         'category',
         'recipeIngredients',
         'recipeIngredients.ingredient',
+        'lots',
       ],
     });
 
@@ -158,6 +152,11 @@ export class MenuItemService {
         `Ítem de menú con ID ${id} no encontrado o sin permisos.`,
       );
     }
+    
+    // Calculate stock from lots
+    menuItem.stock = menuItem.lots
+      ? menuItem.lots.reduce((sum, lot) => sum + lot.quantity, 0)
+      : 0;
 
     return menuItem;
   }
@@ -175,7 +174,6 @@ export class MenuItemService {
     try {
       const menuItemToUpdate = await queryRunner.manager.findOne(MenuItems, {
         where: { id, companyId },
-        relations: ['recipeIngredients'],
       });
 
       if (!menuItemToUpdate) {
@@ -185,10 +183,9 @@ export class MenuItemService {
       const {
         recipeIngredients: recipeDto,
         categoryId,
-        stock: newStock,
+        // stock is no longer managed here
         ...menuItemData
       } = updateDto;
-      const originalStock = menuItemToUpdate.stock;
 
       if (categoryId && categoryId !== menuItemToUpdate.category?.id) {
         await this.categoryService.validateCategoryAvailability(
@@ -223,30 +220,8 @@ export class MenuItemService {
         }
       }
 
-      const hasRecipe =
-        (recipeDto && recipeDto.length > 0) ||
-        (!recipeDto &&
-          menuItemToUpdate.recipeIngredients &&
-          menuItemToUpdate.recipeIngredients.length > 0);
-
-      if (!hasRecipe && newStock !== undefined && newStock !== originalStock) {
-        const quantityDiff = newStock - originalStock;
-        if (quantityDiff !== 0) {
-          await this.stockService.registerMovement(
-            {
-              menuItemId: id,
-              quantity: Math.abs(quantityDiff),
-              movementType:
-                quantityDiff > 0 ? MovementType.IN : MovementType.OUT,
-              reason: 'Ajuste de stock',
-              unitCost: updateDto.cost,
-            },
-            companyId,
-            userId,
-            queryRunner,
-          );
-        }
-      }
+      // The block that caused the error has been removed.
+      // Stock adjustments must be done via explicit calls to StockService.
 
       await queryRunner.commitTransaction();
       return this.findOneForTenant(id, companyId);

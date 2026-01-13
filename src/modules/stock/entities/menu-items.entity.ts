@@ -11,6 +11,7 @@ import { BaseTenantEntity } from 'src/common/entities/base-tenant.entity';
 import { Category } from './category.entity';
 import { RecipeIngredient } from './recipe-ingredient.entity';
 import { StockMovement } from './stock-movement.entity';
+import { MenuItemLot } from './menu-item-lot.entity';
 
 import { MenuItemType } from '../enums/menuItemTypes';
 
@@ -26,8 +27,7 @@ export class MenuItems extends BaseTenantEntity {
   @Column({ length: 50, unique: false })
   name: string;
 
-  /** Cantidad disponible. */
-  @Column({ type: 'int', default: 0 })
+  /** Cantidad disponible (calculado a partir de los lotes). */
   stock: number;
 
   /** Nombre del ícono asociado (opcional). */
@@ -77,6 +77,9 @@ export class MenuItems extends BaseTenantEntity {
 
   @OneToMany(() => StockMovement, (movement) => movement.menuItem)
   stockMovements: StockMovement[];
+
+  @OneToMany(() => MenuItemLot, (lot) => lot.menuItem)
+  lots: MenuItemLot[];
 
     isProduced?: boolean;
 }

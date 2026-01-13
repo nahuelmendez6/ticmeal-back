@@ -129,7 +129,7 @@ export class PurchasesService {
             movementType: MovementType.IN,
             reason: `Recepción de Orden de Compra #${(purchaseOrder as any).id}`,
             unitCost: item.unitCost,
-            lot: item.lot,
+            lotNumber: item.lot,
             expirationDate: item.expirationDate?.toString(),
           },
           companyId,

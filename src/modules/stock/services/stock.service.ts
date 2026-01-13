@@ -11,6 +11,8 @@ import { MenuItems } from '../entities/menu-items.entity';
 import { MovementType } from '../enums/enums';
 import { CreateStockMovementDto } from '../dto/create-stock-movement.dto';
 import { User } from 'src/modules/users/entities/user.entity';
+import { IngredientLot } from '../entities/ingredient-lot.entity';
+import { MenuItemLot } from '../entities/menu-item-lot.entity';
 
 @Injectable()
 export class StockService {
@@ -27,7 +29,7 @@ export class StockService {
     return this.stockMovementRepo.find({
       where: { ingredient: { id: ingredientId }, companyId },
       order: { createdAt: 'DESC' as const },
-      relations: ['performedBy'],
+      relations: ['performedBy', 'ingredientLot'],
     });
   }
 
@@ -38,7 +40,7 @@ export class StockService {
     return this.stockMovementRepo.find({
       where: { menuItem: { id: menuItemId }, companyId },
       order: { createdAt: 'DESC' as const },
-      relations: ['performedBy'],
+      relations: ['performedBy', 'menuItemLot'],
     });
   }
 
@@ -56,7 +58,16 @@ export class StockService {
     }
 
     try {
-      const { menuItemId, ingredientId, quantity, movementType } = createDto;
+      const {
+        menuItemId,
+        ingredientId,
+        quantity,
+        movementType,
+        lotNumber,
+        unitCost,
+        ingredientLotId,
+        menuItemLotId,
+      } = createDto;
 
       if (!menuItemId && !ingredientId) {
         throw new BadRequestException(
@@ -69,52 +80,25 @@ export class StockService {
         );
       }
 
-      let currentStock = 0;
-      let item: Ingredient | MenuItems;
-      const itemRepo = menuItemId
-        ? runner.manager.getRepository(MenuItems)
-        : runner.manager.getRepository(Ingredient);
-      const itemId = menuItemId || ingredientId;
+      let savedMovement: StockMovement;
 
-      item = await itemRepo.findOneBy({ id: itemId, companyId });
-
-      if (!item) {
-        throw new NotFoundException(
-          `El producto con ID ${itemId} no fue encontrado.`,
+      if (movementType === MovementType.IN) {
+        savedMovement = await this.handleInMovement(
+          runner,
+          createDto,
+          companyId,
+          userId,
         );
-      }
-
-      currentStock = 'stock' in item ? item.stock : item.quantityInStock;
-
-      const quantityChange =
-        movementType === MovementType.IN ? quantity : -quantity;
-      const newStock = currentStock + quantityChange;
-
-      if (newStock < 0) {
-        throw new BadRequestException(
-          `El stock no puede ser negativo. Stock actual: ${currentStock}, Intento de reducir: ${quantity}`,
+      } else if (movementType === MovementType.OUT) {
+        savedMovement = await this.handleOutMovement(
+          runner,
+          createDto,
+          companyId,
+          userId,
         );
-      }
-
-      // Update item stock
-      if ('stock' in item) {
-        item.stock = newStock;
       } else {
-        item.quantityInStock = newStock;
+        throw new BadRequestException('Tipo de movimiento no válido.');
       }
-      await runner.manager.save(item);
-
-      const newMovement = runner.manager.create(StockMovement, {
-        ...createDto,
-        companyId,
-        performedBy: { id: userId } as User,
-        stockAfter: newStock,
-        unit: 'stock' in item ? ('unit' as any) : item.unit,
-        menuItem: menuItemId ? ({ id: menuItemId } as MenuItems) : null,
-        ingredient: ingredientId ? ({ id: ingredientId } as Ingredient) : null,
-      });
-
-      const savedMovement = await runner.manager.save(newMovement);
 
       if (!queryRunner) {
         await runner.commitTransaction();
@@ -131,5 +115,197 @@ export class StockService {
         await runner.release();
       }
     }
+  }
+
+  private async handleInMovement(
+    runner: QueryRunner,
+    createDto: CreateStockMovementDto,
+    companyId: number,
+    userId: number,
+  ): Promise<StockMovement> {
+    const {
+      ingredientId,
+      menuItemId,
+      quantity,
+      lotNumber,
+      unitCost,
+      expirationDate,
+    } = createDto;
+
+    if (!lotNumber || unitCost === undefined) {
+      throw new BadRequestException(
+        'Para movimientos de ENTRADA, se requiere lotNumber y unitCost.',
+      );
+    }
+
+    let lot: IngredientLot | MenuItemLot;
+    let newStockInLot: number;
+    const user = { id: userId } as User;
+
+    if (ingredientId) {
+      const ingredientRepo = runner.manager.getRepository(Ingredient);
+      const ingredient = await ingredientRepo.findOneBy({
+        id: ingredientId,
+        companyId,
+      });
+      if (!ingredient)
+        throw new NotFoundException('Ingrediente no encontrado.');
+
+      const lotRepo = runner.manager.getRepository(IngredientLot);
+      let existingLot = await lotRepo.findOne({
+        where: { lotNumber, ingredient: { id: ingredientId }, companyId },
+      });
+
+      if (existingLot) {
+        existingLot.quantity += quantity;
+        existingLot.unitCost = unitCost; // Opcional: actualizar costo al del último ingreso
+        lot = await runner.manager.save(existingLot);
+      } else {
+        const newLot = lotRepo.create({
+          ingredient,
+          lotNumber,
+          quantity,
+          unitCost,
+          expirationDate: expirationDate ? new Date(expirationDate) : null,
+          companyId,
+        });
+        lot = await runner.manager.save(newLot);
+      }
+      newStockInLot = lot.quantity;
+
+      const movement = runner.manager.create(StockMovement, {
+        ...createDto,
+        companyId,
+        performedBy: user,
+        ingredient,
+        ingredientLot: lot as IngredientLot,
+        stockAfter: newStockInLot,
+        unit: ingredient.unit,
+      });
+      return runner.manager.save(movement);
+    } else {
+      // Lógica para menuItemId
+      const menuItemRepo = runner.manager.getRepository(MenuItems);
+      const menuItem = await menuItemRepo.findOneBy({
+        id: menuItemId,
+        companyId,
+      });
+      if (!menuItem) throw new NotFoundException('Ítem de menú no encontrado.');
+
+      const lotRepo = runner.manager.getRepository(MenuItemLot);
+      let existingLot = await lotRepo.findOne({
+        where: { lotNumber, menuItem: { id: menuItemId }, companyId },
+      });
+
+      if (existingLot) {
+        existingLot.quantity += quantity;
+        existingLot.unitCost = unitCost;
+        lot = await runner.manager.save(existingLot);
+      } else {
+        const newLot = lotRepo.create({
+          menuItem,
+          lotNumber,
+          quantity,
+          unitCost,
+          expirationDate: expirationDate ? new Date(expirationDate) : null,
+          companyId,
+        });
+        lot = await runner.manager.save(newLot);
+      }
+      newStockInLot = lot.quantity;
+
+      const movement = runner.manager.create(StockMovement, {
+        ...createDto,
+        companyId,
+        performedBy: user,
+        menuItem,
+        menuItemLot: lot as MenuItemLot,
+        stockAfter: newStockInLot,
+        unit: 'unit' as any, // MenuItem no tiene unidad, se usa 'unit' por defecto
+      });
+      return runner.manager.save(movement);
+    }
+  }
+
+  private async handleOutMovement(
+    runner: QueryRunner,
+    createDto: CreateStockMovementDto,
+    companyId: number,
+    userId: number,
+  ): Promise<StockMovement> {
+    const {
+      quantity,
+      ingredientId,
+      menuItemId,
+      ingredientLotId,
+      menuItemLotId,
+    } = createDto;
+
+    if (!ingredientLotId && !menuItemLotId) {
+      throw new BadRequestException(
+        'Para movimientos de SALIDA, se requiere ingredientLotId o menuItemLotId.',
+      );
+    }
+
+    let lot: IngredientLot | MenuItemLot;
+    let newStockInLot: number;
+    const user = { id: userId } as User;
+
+    if (ingredientLotId) {
+      if (!ingredientId)
+        throw new BadRequestException(
+          'Se proporcionó ingredientLotId pero no ingredientId.',
+        );
+      const lotRepo = runner.manager.getRepository(IngredientLot);
+      lot = await lotRepo.findOne({
+        where: { id: ingredientLotId, companyId },
+        relations: ['ingredient'],
+      });
+      if (!lot) throw new NotFoundException('Lote de ingrediente no encontrado.');
+      if (lot.ingredient.id !== ingredientId)
+        throw new BadRequestException(
+          'El lote no corresponde al ingrediente especificado.',
+        );
+    } else {
+      // Lógica para menuItemLotId
+      if (!menuItemId)
+        throw new BadRequestException(
+          'Se proporcionó menuItemLotId pero no menuItemId.',
+        );
+      const lotRepo = runner.manager.getRepository(MenuItemLot);
+      lot = await lotRepo.findOne({
+        where: { id: menuItemLotId, companyId },
+        relations: ['menuItem'],
+      });
+      if (!lot) throw new NotFoundException('Lote de ítem de menú no encontrado.');
+      if (lot.menuItem.id !== menuItemId)
+        throw new BadRequestException(
+          'El lote no corresponde al ítem de menú especificado.',
+        );
+    }
+
+    if (lot.quantity < quantity) {
+      throw new BadRequestException(
+        `Stock insuficiente en el lote. Disponible: ${lot.quantity}, Requerido: ${quantity}`,
+      );
+    }
+
+    lot.quantity -= quantity;
+    await runner.manager.save(lot);
+    newStockInLot = lot.quantity;
+
+    const movement = runner.manager.create(StockMovement, {
+      ...createDto,
+      companyId,
+      performedBy: user,
+      ingredient: ingredientId ? { id: ingredientId } as Ingredient : null,
+      menuItem: menuItemId ? { id: menuItemId } as MenuItems : null,
+      ingredientLot: ingredientLotId ? (lot as IngredientLot) : null,
+      menuItemLot: menuItemLotId ? (lot as MenuItemLot) : null,
+      stockAfter: newStockInLot,
+      unit: 'ingredient' in lot ? (lot as any).ingredient.unit : ('unit' as any),
+    });
+
+    return runner.manager.save(movement);
   }
 }
