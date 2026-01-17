@@ -9,6 +9,8 @@ import {
   IsPositive,
   IsNumberString,
   IsObject,
+  Min,
+  Max,
 } from 'class-validator';
 import { IngredientUnit, IngredientCostType } from '../enums/enums';
 
@@ -64,6 +66,13 @@ export class CreateIngredientDto {
   @IsOptional()
   @IsNumber()
   minStock?: number | null;
+
+  /** Porcentaje de merma/rendimiento (0-100) */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  shrinkagePercentage?: number;
 
   @IsOptional()
   @IsBoolean()

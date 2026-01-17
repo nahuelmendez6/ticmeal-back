@@ -69,12 +69,19 @@ export class MealShiftService {
       if (menuItem.recipeIngredients && menuItem.recipeIngredients.length > 0) {
         for (const recipeIngredient of menuItem.recipeIngredients) {
           const ingredient = recipeIngredient.ingredient;
-          const quantityRequired = recipeIngredient.quantity * quantityProduced;
+          const netQuantityPerUnit = recipeIngredient.quantity;
+          const shrinkage = ingredient.shrinkagePercentage || 0;
+
+          // Calcular la cantidad bruta necesaria para obtener la neta
+          const grossQuantityPerUnit =
+            netQuantityPerUnit / (1 - shrinkage / 100);
+          const totalGrossQuantityToConsume =
+            grossQuantityPerUnit * quantityProduced;
 
           await this.stockService.registerMovement(
             {
               ingredientId: ingredient.id,
-              quantity: quantityRequired,
+              quantity: totalGrossQuantityToConsume, // <-- Usar cantidad bruta
               movementType: MovementType.OUT,
               reason: `Producción de ${menuItem.name}`,
             },

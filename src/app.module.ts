@@ -16,6 +16,7 @@ import { TenantInterceptor } from './common/interceptors/tenant-interceptor';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { PurchasesModule } from './modules/purchases/purchases.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
+import { WasteModule } from './modules/waste/waste.module';
 
 /**
  * Modulo raiz de la aplicación
@@ -41,6 +42,7 @@ import { SuppliersModule } from './modules/suppliers/suppliers.module';
     TasksModule,
     PurchasesModule,
     SuppliersModule,
+    WasteModule,
   ],
   providers: [TenantContextService, TenantInterceptor],
   exports: [TenantContextService, TenantInterceptor],

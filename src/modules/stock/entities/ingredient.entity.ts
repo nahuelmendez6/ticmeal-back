@@ -56,6 +56,10 @@ export class Ingredient extends BaseTenantEntity {
   @Column({ type: 'float', nullable: true })
   minStock: number | null;
 
+  /** Porcentaje de merma/rendimiento (ej: 20 para 20%) */
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  shrinkagePercentage: number;
+
   // Relaciones
   @OneToMany(
     () => RecipeIngredient,
