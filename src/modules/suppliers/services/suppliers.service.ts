@@ -12,10 +12,7 @@ export class SuppliersService {
     private readonly supplierRepo: Repository<Supplier>,
   ) {}
 
-  create(
-    createDto: CreateSupplierDto,
-    companyId: number,
-  ): Promise<Supplier> {
+  create(createDto: CreateSupplierDto, companyId: number): Promise<Supplier> {
     const newSupplier = this.supplierRepo.create({ ...createDto, companyId });
     return this.supplierRepo.save(newSupplier);
   }

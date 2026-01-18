@@ -81,6 +81,5 @@ export class MenuItems extends BaseTenantEntity {
   @OneToMany(() => MenuItemLot, (lot) => lot.menuItem)
   lots: MenuItemLot[];
 
-    isProduced?: boolean;
+  isProduced?: boolean;
 }
-

@@ -1,4 +1,3 @@
-
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -27,7 +26,7 @@ export class TasksService {
 
     for (const shift of shifts) {
       const originalItemCount = shift.menuItems.length;
-      
+
       const simpleItemsOnly = shift.menuItems.filter(
         (item) => item.type === MenuItemType.PRODUCTO_SIMPLE,
       );
@@ -36,14 +35,20 @@ export class TasksService {
         shift.menuItems = simpleItemsOnly;
         await this.shiftRepository.save(shift);
         updatedCount++;
-        this.logger.log(`Cleaned composite items from shift: "${shift.name}" (ID: ${shift.id})`);
+        this.logger.log(
+          `Cleaned composite items from shift: "${shift.name}" (ID: ${shift.id})`,
+        );
       }
     }
 
     if (updatedCount > 0) {
-      this.logger.log(`Daily menu cleanup task finished. Cleaned ${updatedCount} shifts.`);
+      this.logger.log(
+        `Daily menu cleanup task finished. Cleaned ${updatedCount} shifts.`,
+      );
     } else {
-      this.logger.log('Daily menu cleanup task finished. No shifts required cleaning.');
+      this.logger.log(
+        'Daily menu cleanup task finished. No shifts required cleaning.',
+      );
     }
   }
 }

@@ -49,7 +49,10 @@ export class PurchasesService {
         }
 
         if (ingredientId) {
-          await this.ingredientService.findOneForTenant(ingredientId, companyId);
+          await this.ingredientService.findOneForTenant(
+            ingredientId,
+            companyId,
+          );
           itemsToCreate.push({
             ...itemDto,
             companyId,
@@ -97,7 +100,9 @@ export class PurchasesService {
       relations: ['items', 'items.ingredient', 'items.menuItem', 'supplier'],
     });
     if (!purchaseOrder) {
-      throw new NotFoundException(`Orden de compra con ID ${id} no encontrada.`);
+      throw new NotFoundException(
+        `Orden de compra con ID ${id} no encontrada.`,
+      );
     }
     return purchaseOrder;
   }

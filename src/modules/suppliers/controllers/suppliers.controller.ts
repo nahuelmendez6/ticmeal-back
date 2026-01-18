@@ -25,7 +25,10 @@ export class SuppliersController {
   constructor(private readonly suppliersService: SuppliersService) {}
 
   @Post()
-  create(@Body() createSupplierDto: CreateSupplierDto, @Tenant() tenantId: number) {
+  create(
+    @Body() createSupplierDto: CreateSupplierDto,
+    @Tenant() tenantId: number,
+  ) {
     if (!tenantId) {
       throw new ForbiddenException('No se pudo determinar el tenant.');
     }

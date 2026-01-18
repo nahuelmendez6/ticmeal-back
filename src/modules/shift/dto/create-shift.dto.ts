@@ -61,7 +61,8 @@ export class CreateShiftDto {
   menuItemIds?: number[];
 
   @ApiProperty({
-    description: 'Fecha para la cual se aplica la actualización del turno (YYYY-MM-DD)',
+    description:
+      'Fecha para la cual se aplica la actualización del turno (YYYY-MM-DD)',
     example: '2026-01-09',
     required: false,
   })

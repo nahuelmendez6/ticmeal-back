@@ -12,19 +12,22 @@ import {
   ValidatorConstraintInterface,
 } from 'class-validator';
 import { WasteReason } from '../enums/waste-reason.enum';
+import { IngredientUnit } from 'src/modules/stock/enums/enums';
 
 @ValidatorConstraint({ name: 'isOnlyOnePresent', async: false })
 export class IsOnlyOnePresentConstraint
   implements ValidatorConstraintInterface
 {
-  validate(value: any, args: ValidationArguments) {
-    const [relatedPropertyName] = args.constraints;
-    const relatedValue = (args.object as any)[relatedPropertyName];
-    return (value && !relatedValue) || (!value && relatedValue);
+  validate(value: unknown, args: ValidationArguments): boolean {
+    const [relatedPropertyName] = args.constraints as [string];
+    const relatedValue = (args.object as Record<string, unknown>)[
+      relatedPropertyName
+    ];
+    return (!!value && !relatedValue) || (!value && !!relatedValue);
   }
 
-  defaultMessage(args: ValidationArguments) {
-    const [relatedPropertyName] = args.constraints;
+  defaultMessage(args: ValidationArguments): string {
+    const [relatedPropertyName] = args.constraints as [string];
     return `Either ${args.property} or ${relatedPropertyName} must be present, but not both.`;
   }
 }
@@ -32,16 +35,20 @@ export class IsOnlyOnePresentConstraint
 export class CreateWasteLogDto {
   @IsOptional()
   @IsNumber()
-  @Validate(IsOnlyOnePresentConstraint, ['menuItemId'])
-  ingredientId?: number;
+  @Validate(IsOnlyOnePresentConstraint, ['menuItemLotId'])
+  ingredientLotId?: number;
 
   @IsOptional()
   @IsNumber()
-  menuItemId?: number;
+  menuItemLotId?: number;
 
   @IsNumber()
   @IsPositive()
   quantity: number;
+
+  @IsEnum(IngredientUnit)
+  @IsOptional()
+  unit?: IngredientUnit;
 
   @IsEnum(WasteReason)
   @IsNotEmpty()

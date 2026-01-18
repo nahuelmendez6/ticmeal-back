@@ -1,4 +1,3 @@
-
 # Módulo de Stock
 
 ## Descripción General
@@ -120,3 +119,11 @@ Los controladores exponen la funcionalidad del módulo a través de una API REST
    * Integración General:
        * El nuevo WasteModule ha sido registrado en el módulo principal de la aplicación (app.module.ts) para activarlo.
 
+  3. Trazabilidad de Mermas a Nivel de Lote
+
+   Para mejorar la precisión en el seguimiento de desperdicios, se ha modificado la forma en que se registran las mermas, vinculándolas directamente a los lotes.
+
+   * **Modelo Modificado**: `WasteLog` (`.../waste/entities/waste-log.entity.ts`)
+       * Se reemplazaron las relaciones directas con `Ingredient` y `MenuItems`.
+       * Se añadieron nuevas relaciones `ManyToOne` hacia `IngredientLot` y `MenuItemLot`.
+       * Ahora, cada registro de merma está asociado a un lote específico de un ingrediente o de un ítem de menú, permitiendo una trazabilidad exacta del origen del desperdicio. Esto es fundamental para identificar problemas con lotes específicos (ej: un lote cercano a su fecha de vencimiento).

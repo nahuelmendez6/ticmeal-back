@@ -1,4 +1,11 @@
-import { Entity, Column, ManyToOne, JoinColumn, CreateDateColumn, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { BaseTenantEntity } from 'src/common/entities/base-tenant.entity';
 import { MenuItems } from './menu-items.entity';
 import { Ingredient } from './ingredient.entity';
@@ -25,7 +32,9 @@ export class StockMovement extends BaseTenantEntity {
   @JoinColumn({ name: 'ingredientId' })
   ingredient: Ingredient | null;
 
-  @ManyToOne(() => IngredientLot, (lot) => lot.stockMovements, { nullable: true })
+  @ManyToOne(() => IngredientLot, (lot) => lot.stockMovements, {
+    nullable: true,
+  })
   @JoinColumn({ name: 'ingredientLotId' })
   ingredientLot: IngredientLot | null;
 
@@ -39,7 +48,11 @@ export class StockMovement extends BaseTenantEntity {
   @Column({ type: 'float' })
   quantity: number;
 
-  @Column({ type: 'float', nullable: true, comment: 'Stock resultante después del movimiento' })
+  @Column({
+    type: 'float',
+    nullable: true,
+    comment: 'Stock resultante después del movimiento',
+  })
   stockAfter: number | null;
 
   @Column({ type: 'enum', enum: IngredientUnit })

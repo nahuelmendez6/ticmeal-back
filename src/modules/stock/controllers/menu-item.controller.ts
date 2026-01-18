@@ -23,7 +23,6 @@ import { Roles } from 'src/modules/auth/decorators/roles.decorators';
 import { Tenant } from 'src/common/decorators/tenant-decorator';
 import { MenuItems } from '../entities/menu-items.entity';
 
-
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('menu-items')
 export class MenuItemController {

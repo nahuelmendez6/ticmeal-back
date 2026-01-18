@@ -1,4 +1,11 @@
-import { Entity, Column, ManyToOne, JoinColumn, Check, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  Check,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { BaseTenantEntity } from 'src/common/entities/base-tenant.entity';
 import { PurchaseOrder } from './purchase-order.entity';
 import { Ingredient } from 'src/modules/stock/entities/ingredient.entity';
@@ -9,7 +16,6 @@ import { MenuItems } from 'src/modules/stock/entities/menu-items.entity';
   `("ingredientId" IS NOT NULL AND "menuItemId" IS NULL) OR ("ingredientId" IS NULL AND "menuItemId" IS NOT NULL)`,
 )
 export class PurchaseOrderItem extends BaseTenantEntity {
-
   @PrimaryGeneratedColumn()
   id: number;
 

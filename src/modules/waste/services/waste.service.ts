@@ -4,18 +4,20 @@ import { Repository } from 'typeorm';
 import { WasteLog } from '../entities/waste-log.entity';
 import { CreateWasteLogDto } from '../dto/create-waste-log.dto';
 import { StockService } from 'src/modules/stock/services/stock.service';
-import { IngredientService } from 'src/modules/stock/services/ingredient.service';
-import { MenuItemService } from 'src/modules/stock/services/menu-item.service';
-import { MovementType } from 'src/modules/stock/enums/enums';
+import { IngredientUnit, MovementType } from 'src/modules/stock/enums/enums';
+import { IngredientLot } from 'src/modules/stock/entities/ingredient-lot.entity';
+import { MenuItemLot } from 'src/modules/stock/entities/menu-item-lot.entity';
 
 @Injectable()
 export class WasteService {
   constructor(
     @InjectRepository(WasteLog)
     private readonly wasteLogRepo: Repository<WasteLog>,
+    @InjectRepository(IngredientLot)
+    private readonly ingredientLotRepo: Repository<IngredientLot>,
+    @InjectRepository(MenuItemLot)
+    private readonly menuItemLotRepo: Repository<MenuItemLot>,
     private readonly stockService: StockService,
-    private readonly ingredientService: IngredientService,
-    private readonly menuItemService: MenuItemService,
   ) {}
 
   async createWasteLog(
@@ -23,21 +25,37 @@ export class WasteService {
     companyId: number,
     userId: number,
   ): Promise<WasteLog> {
-    const { ingredientId, menuItemId, quantity, reason, notes, logDate } =
+    const { ingredientLotId, menuItemLotId, quantity, reason, logDate } =
       createDto;
+    let { unit } = createDto;
 
-    let unit;
+    let ingredientId: number | undefined;
+    let menuItemId: number | undefined;
 
-    // 1. Validate entity and get unit
-    if (ingredientId) {
-      const ingredient = await this.ingredientService.findOneForTenant(
-        ingredientId,
-        companyId,
-      );
-      unit = ingredient.unit;
-    } else if (menuItemId) {
-      await this.menuItemService.findOneForTenant(menuItemId, companyId);
-      unit = 'unit'; // MenuItems are always 'unit'
+    if (ingredientLotId) {
+      const ingredientLot = await this.ingredientLotRepo.findOne({
+        where: { id: ingredientLotId, companyId },
+        relations: ['ingredient'],
+      });
+      if (!ingredientLot) {
+        throw new NotFoundException('Lote de ingrediente no encontrado.');
+      }
+      ingredientId = ingredientLot.ingredient.id;
+      if (!unit) {
+        unit = ingredientLot.ingredient.unit;
+      }
+    } else if (menuItemLotId) {
+      const menuItemLot = await this.menuItemLotRepo.findOne({
+        where: { id: menuItemLotId, companyId },
+        relations: ['menuItem'],
+      });
+      if (!menuItemLot) {
+        throw new NotFoundException('Lote de ítem de menú no encontrado.');
+      }
+      menuItemId = menuItemLot.menuItem.id;
+      if (!unit) {
+        unit = IngredientUnit.UNIT;
+      }
     }
 
     // 2. Create the stock movement for the waste
@@ -45,6 +63,8 @@ export class WasteService {
       {
         ingredientId,
         menuItemId,
+        ingredientLotId,
+        menuItemLotId,
         quantity,
         movementType: MovementType.OUT,
         reason: `Merma: ${reason}`,
@@ -56,10 +76,10 @@ export class WasteService {
     // 3. Create and save the waste log
     const newWasteLog = this.wasteLogRepo.create({
       ...createDto,
+      unit,
       companyId,
       performedById: userId,
       logDate: new Date(logDate),
-      unit,
     });
 
     return this.wasteLogRepo.save(newWasteLog);
@@ -68,7 +88,13 @@ export class WasteService {
   async findAllForTenant(companyId: number): Promise<WasteLog[]> {
     return this.wasteLogRepo.find({
       where: { companyId },
-      relations: ['ingredient', 'menuItem', 'performedBy'],
+      relations: [
+        'ingredientLot',
+        'menuItemLot',
+        'performedBy',
+        'ingredientLot.ingredient',
+        'menuItemLot.menuItem',
+      ],
       order: {
         logDate: 'DESC',
       },

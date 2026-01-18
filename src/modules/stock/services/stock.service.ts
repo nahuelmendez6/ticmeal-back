@@ -152,7 +152,7 @@ export class StockService {
         throw new NotFoundException('Ingrediente no encontrado.');
 
       const lotRepo = runner.manager.getRepository(IngredientLot);
-      let existingLot = await lotRepo.findOne({
+      const existingLot = await lotRepo.findOne({
         where: { lotNumber, ingredient: { id: ingredientId }, companyId },
       });
 
@@ -178,7 +178,7 @@ export class StockService {
         companyId,
         performedBy: user,
         ingredient,
-        ingredientLot: lot as IngredientLot,
+        ingredientLot: lot,
         stockAfter: newStockInLot,
         unit: ingredient.unit,
       });
@@ -193,7 +193,7 @@ export class StockService {
       if (!menuItem) throw new NotFoundException('Ítem de menú no encontrado.');
 
       const lotRepo = runner.manager.getRepository(MenuItemLot);
-      let existingLot = await lotRepo.findOne({
+      const existingLot = await lotRepo.findOne({
         where: { lotNumber, menuItem: { id: menuItemId }, companyId },
       });
 
@@ -219,7 +219,7 @@ export class StockService {
         companyId,
         performedBy: user,
         menuItem,
-        menuItemLot: lot as MenuItemLot,
+        menuItemLot: lot,
         stockAfter: newStockInLot,
         unit: 'unit' as any, // MenuItem no tiene unidad, se usa 'unit' por defecto
       });
@@ -261,7 +261,8 @@ export class StockService {
         where: { id: ingredientLotId, companyId },
         relations: ['ingredient'],
       });
-      if (!lot) throw new NotFoundException('Lote de ingrediente no encontrado.');
+      if (!lot)
+        throw new NotFoundException('Lote de ingrediente no encontrado.');
       if (lot.ingredient.id !== ingredientId)
         throw new BadRequestException(
           'El lote no corresponde al ingrediente especificado.',
@@ -277,7 +278,8 @@ export class StockService {
         where: { id: menuItemLotId, companyId },
         relations: ['menuItem'],
       });
-      if (!lot) throw new NotFoundException('Lote de ítem de menú no encontrado.');
+      if (!lot)
+        throw new NotFoundException('Lote de ítem de menú no encontrado.');
       if (lot.menuItem.id !== menuItemId)
         throw new BadRequestException(
           'El lote no corresponde al ítem de menú especificado.',
@@ -298,12 +300,13 @@ export class StockService {
       ...createDto,
       companyId,
       performedBy: user,
-      ingredient: ingredientId ? { id: ingredientId } as Ingredient : null,
-      menuItem: menuItemId ? { id: menuItemId } as MenuItems : null,
+      ingredient: ingredientId ? ({ id: ingredientId } as Ingredient) : null,
+      menuItem: menuItemId ? ({ id: menuItemId } as MenuItems) : null,
       ingredientLot: ingredientLotId ? (lot as IngredientLot) : null,
       menuItemLot: menuItemLotId ? (lot as MenuItemLot) : null,
       stockAfter: newStockInLot,
-      unit: 'ingredient' in lot ? (lot as any).ingredient.unit : ('unit' as any),
+      unit:
+        'ingredient' in lot ? (lot as any).ingredient.unit : ('unit' as any),
     });
 
     return runner.manager.save(movement);

@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Post,
-  Body,
-  UseGuards,
-  Req,
-  Get,
-} from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get } from '@nestjs/common';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -19,6 +12,8 @@ import { Tenant } from 'src/common/decorators/tenant-decorator';
 import { Roles } from 'src/modules/auth/decorators/roles.decorators';
 import { WasteService } from '../services/waste.service';
 import { CreateWasteLogDto } from '../dto/create-waste-log.dto';
+import { CurrentUser } from 'src/modules/auth/decorators/current-user.decorator';
+import { User } from 'src/modules/users/entities/user.entity';
 
 @ApiTags('Waste Management')
 @ApiBearerAuth()
@@ -35,17 +30,19 @@ export class WasteController {
     description: 'The waste log has been successfully created.',
   })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
-  @ApiResponse({ status: 404, description: 'Ingredient or MenuItem not found.' })
+  @ApiResponse({
+    status: 404,
+    description: 'Ingredient or MenuItem not found.',
+  })
   create(
     @Body() createWasteLogDto: CreateWasteLogDto,
     @Tenant() companyId: number,
-    @Req() req: any,
+    @CurrentUser() user: User,
   ) {
-    const userId = req.user.id;
     return this.wasteService.createWasteLog(
       createWasteLogDto,
       companyId,
-      userId,
+      user.id,
     );
   }
 

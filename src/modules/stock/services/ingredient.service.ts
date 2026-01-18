@@ -132,8 +132,9 @@ export class IngredientService {
             categoryId,
             companyId,
           );
-          ingredientToUpdate.category =
-            { id: categoryId } as IngredientCategory;
+          ingredientToUpdate.category = {
+            id: categoryId,
+          } as IngredientCategory;
         } else {
           ingredientToUpdate.category = null;
         }
@@ -163,4 +164,3 @@ export class IngredientService {
     return true;
   }
 }
-

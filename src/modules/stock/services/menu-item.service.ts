@@ -152,7 +152,7 @@ export class MenuItemService {
         `Ítem de menú con ID ${id} no encontrado o sin permisos.`,
       );
     }
-    
+
     // Calculate stock from lots
     menuItem.stock = menuItem.lots
       ? menuItem.lots.reduce((sum, lot) => sum + lot.quantity, 0)
@@ -245,4 +245,3 @@ export class MenuItemService {
     return true;
   }
 }
-

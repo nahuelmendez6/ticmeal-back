@@ -67,4 +67,3 @@ import { MenuItemLot } from './entities/menu-item-lot.entity';
   ],
 })
 export class StockModule {}
-

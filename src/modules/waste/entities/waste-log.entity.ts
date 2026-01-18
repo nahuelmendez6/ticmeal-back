@@ -6,30 +6,30 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { BaseTenantEntity } from 'src/common/entities/base-tenant.entity';
-import { Ingredient } from 'src/modules/stock/entities/ingredient.entity';
-import { MenuItems } from 'src/modules/stock/entities/menu-items.entity';
 import { User } from 'src/modules/users/entities/user.entity';
 import { WasteReason } from '../enums/waste-reason.enum';
 import { IngredientUnit } from 'src/modules/stock/enums/enums';
+import { IngredientLot } from 'src/modules/stock/entities/ingredient-lot.entity';
+import { MenuItemLot } from 'src/modules/stock/entities/menu-item-lot.entity';
 
 @Entity('waste_logs')
 export class WasteLog extends BaseTenantEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => Ingredient, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'ingredientId' })
-  ingredient: Ingredient | null;
+  @ManyToOne(() => IngredientLot, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'ingredientLotId' })
+  ingredientLot: IngredientLot | null;
 
   @Column({ nullable: true })
-  ingredientId: number | null;
+  ingredientLotId: number | null;
 
-  @ManyToOne(() => MenuItems, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'menuItemId' })
-  menuItem: MenuItems | null;
+  @ManyToOne(() => MenuItemLot, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'menuItemLotId' })
+  menuItemLot: MenuItemLot | null;
 
   @Column({ nullable: true })
-  menuItemId: number | null;
+  menuItemLotId: number | null;
 
   @Column({ type: 'float' })
   quantity: number;
