@@ -127,3 +127,68 @@ Los controladores exponen la funcionalidad del módulo a través de una API REST
        * Se reemplazaron las relaciones directas con `Ingredient` y `MenuItems`.
        * Se añadieron nuevas relaciones `ManyToOne` hacia `IngredientLot` y `MenuItemLot`.
        * Ahora, cada registro de merma está asociado a un lote específico de un ingrediente o de un ítem de menú, permitiendo una trazabilidad exacta del origen del desperdicio. Esto es fundamental para identificar problemas con lotes específicos (ej: un lote cercano a su fecha de vencimiento).
+
+## Funcionalidades Avanzadas de Auditoría y Costeo
+
+Se ha extendido el módulo de stock con funcionalidades avanzadas para el control de inventario a través de auditorías y un motor de costeo de recetas en tiempo real.
+
+### 1. Auditoría de Stock y Ajustes Automáticos
+
+Para permitir un control preciso del inventario físico contra el teórico, se ha introducido un sistema de auditorías.
+
+-   **Nueva Entidad `StockAudit`**:
+    -   **Ubicación**: `.../stock/entities/stock-audit.entity.ts`
+    -   **Descripción**: Almacena el resultado de un conteo físico de un ingrediente en una fecha determinada. Guarda el stock teórico, el físico, la diferencia, y el costo unitario del ingrediente en ese momento.
+
+-   **Trazabilidad en `StockMovement`**:
+    -   La entidad `StockMovement` ahora tiene una relación opcional con `StockAudit`, permitiendo que cada movimiento de ajuste quede vinculado a la auditoría que lo originó.
+
+-   **Motor de Ajuste en `StockService`**:
+    -   **Nuevo Método**: `handleAudit(auditData)`
+    -   **Lógica**:
+        1.  **Transaccional**: Todo el proceso se ejecuta dentro de una transacción para garantizar la atomicidad.
+        2.  **Cálculo de Diferencia**: Compara el stock teórico (suma de todos los lotes del ingrediente) con el stock físico reportado.
+        3.  **Ajuste por Faltante (Shortage)**: Si el stock físico es menor, se descuenta la diferencia de los lotes de ingredientes siguiendo una estrategia **FIFO** (los más antiguos primero).
+        4.  **Ajuste por Sobrante (Surplus)**: Si el stock físico es mayor, se incrementa la cantidad en el lote más reciente.
+        5.  **Registro Automático**: Por cada ajuste en un lote, se crea un `StockMovement` de tipo `ADJUSTMENT`, dejando un registro claro del evento.
+
+-   **Nuevo Endpoint**:
+    -   `POST /stock/audit`: Permite registrar una nueva auditoría, desencadenando todo el proceso de ajuste automático.
+
+### 2. Motor de Costeo de Recetas (Escandallo)
+
+Se ha creado un servicio dedicado para calcular el costo de producción de los ítems del menú en tiempo real.
+
+-   **Nuevo Módulo `CostingModule`**:
+    -   **Ubicación**: `src/modules/costing/`
+    -   **Componentes**: `CostingService`
+    -   **Descripción**: Centraliza toda la lógica para el cálculo de costos de recetas.
+
+-   **Lógica del `CostingService`**:
+    -   **Método Principal**: `calculateMenuItemCost(menuItemId)`
+    -   **Cálculo Preciso**:
+        1.  **Factor de Merma**: Aplica el `shrinkagePercentage` de cada ingrediente para calcular la cantidad bruta necesaria.
+        2.  **Costo FIFO**: Para obtener el costo de cada ingrediente, busca en los `IngredientLot` con stock disponible y toma el `unitCost` del lote más antiguo (First-In, First-Out).
+        3.  **Costo Total**: Suma los costos de todos los ingredientes para obtener el costo de producción final de una unidad del ítem del menú.
+
+-   **Nuevo Endpoint**:
+    -   `GET /stock/menu-item/:id/theoretical-cost`: Expone el `CostingService` para permitir consultar el costo teórico (escandallo) de cualquier plato en cualquier momento.
+
+### 3. Integración del Costeo en la Producción
+
+El nuevo motor de costeo se ha integrado en el flujo de producción para registrar los costos de manera precisa.
+
+-   **Servicio Modificado**: `MealShiftService`
+-   **Lógica Actualizada**:
+    -   Al registrar la producción de un `MenuItems` (ej: a través de un `MealShift`), el servicio ahora invoca al `CostingService.calculateMenuItemCost()`.
+    -   El costo de producción calculado se guarda en el campo `unitCost` del nuevo `MenuItemLot` que se crea, asegurando que cada lote de producto terminado tenga un registro exacto de su costo de producción en ese momento.
+
+### 4. Reporte de Varianza de Inventario
+
+Para completar el ciclo de auditoría, se ha añadido un nuevo reporte financiero.
+
+-   **Nuevo Endpoint**: `GET /reports/inventory-variance`
+-   **Funcionalidad**:
+    -   Acepta un rango de fechas.
+    -   Calcula la **varianza monetaria total** del inventario sumando el valor de las diferencias de todas las auditorías en ese período (`diferencia * costoUnitarioEnAuditoria`).
+    -   Permite a los administradores cuantificar el impacto financiero de las desviaciones de stock.

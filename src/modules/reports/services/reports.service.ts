@@ -7,6 +7,8 @@ import { Ticket, TicketStatus } from '../../tickets/entities/ticket.entity';
 import { Ingredient } from '../../stock/entities/ingredient.entity';
 import { MenuItems } from '../../stock/entities/menu-items.entity';
 import { MovementType } from '../../stock/enums/enums';
+import { StockAudit } from 'src/modules/stock/entities/stock-audit.entity';
+import { DateRangeDto } from '../dto/date-range.dto';
 
 @Injectable()
 export class ReportsService {
@@ -19,7 +21,28 @@ export class ReportsService {
     private readonly ingredientRepository: Repository<Ingredient>,
     @InjectRepository(MenuItems)
     private readonly menuItemRepository: Repository<MenuItems>,
+    @InjectRepository(StockAudit)
+    private readonly stockAuditRepository: Repository<StockAudit>,
   ) {}
+
+  async getInventoryVarianceReport(
+    dto: DateRangeDto,
+    tenantId: number,
+  ): Promise<{ totalVariance: number }> {
+    const { startDate, endDate } = dto;
+
+    const { totalVariance } = await this.stockAuditRepository
+      .createQueryBuilder('audit')
+      .select('SUM(audit.difference * audit.unitCostAtAudit)', 'totalVariance')
+      .where('audit.companyId = :tenantId', { tenantId })
+      .andWhere('audit.auditDate BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
+      .getRawOne();
+
+    return { totalVariance: parseFloat(totalVariance) || 0 };
+  }
 
   async getStockMovementsReport(
     dto: GetStockMovementsReportDto,

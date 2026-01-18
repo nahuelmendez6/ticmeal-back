@@ -12,6 +12,7 @@ import { Roles } from 'src/modules/auth/decorators/roles.decorators';
 import { Tenant } from 'src/common/decorators/tenant-decorator';
 import { ReportsService } from '../services/reports.service';
 import { GetStockMovementsReportDto } from '../dto/get-stock-movements-report.dto';
+import { DateRangeDto } from '../dto/date-range.dto';
 
 @ApiBearerAuth()
 @ApiTags('Reports')
@@ -19,6 +20,17 @@ import { GetStockMovementsReportDto } from '../dto/get-stock-movements-report.dt
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
+
+  @Get('inventory-variance')
+  @Roles('company_admin', 'kitchen_admin')
+  @ApiOperation({ summary: 'Obtener reporte de varianza de inventario' })
+  getInventoryVarianceReport(
+    @Query(new ValidationPipe({ transform: true }))
+    dto: DateRangeDto,
+    @Tenant() tenantId: number,
+  ) {
+    return this.reportsService.getInventoryVarianceReport(dto, tenantId);
+  }
 
   @Get('stock-movements')
   @Roles('company_admin', 'kitchen_admin')

@@ -13,14 +13,111 @@ import { CreateStockMovementDto } from '../dto/create-stock-movement.dto';
 import { User } from 'src/modules/users/entities/user.entity';
 import { IngredientLot } from '../entities/ingredient-lot.entity';
 import { MenuItemLot } from '../entities/menu-item-lot.entity';
+import { CreateStockAuditDto } from '../dto/create-stock-audit.dto';
+import { StockAudit } from '../entities/stock-audit.entity';
 
 @Injectable()
 export class StockService {
   constructor(
     @InjectRepository(StockMovement)
     private readonly stockMovementRepo: Repository<StockMovement>,
+    @InjectRepository(Ingredient)
+    private readonly ingredientRepo: Repository<Ingredient>,
+    @InjectRepository(IngredientLot)
+    private readonly ingredientLotRepo: Repository<IngredientLot>,
     private readonly dataSource: DataSource,
   ) {}
+
+  async handleAudit(
+    auditData: CreateStockAuditDto,
+    companyId: number,
+    userId: number,
+  ): Promise<StockAudit> {
+    const { ingredientId, physicalStock, observations } = auditData;
+
+    return this.dataSource.transaction(async (manager) => {
+      const ingredient = await manager.findOneBy(Ingredient, {
+        id: ingredientId,
+        companyId,
+      });
+      if (!ingredient) {
+        throw new NotFoundException('Ingrediente no encontrado.');
+      }
+
+      const lots = await manager.find(IngredientLot, {
+        where: { ingredient: { id: ingredientId }, companyId },
+      });
+
+      const theoreticalStock = lots.reduce((sum, lot) => sum + lot.quantity, 0);
+      const difference = theoreticalStock - physicalStock;
+
+      const lastLot = lots.sort((a, b) => b.id - a.id)[0];
+      const unitCostAtAudit = lastLot ? lastLot.unitCost : 0;
+
+      const audit = manager.create(StockAudit, {
+        ingredientId,
+        companyId,
+        physicalStock,
+        theoreticalStock,
+        difference,
+        unitCostAtAudit,
+        observations,
+        auditDate: new Date(),
+      });
+      const savedAudit = await manager.save(audit);
+
+      if (difference > 0) {
+        // Shortage
+        let amountToDecrease = difference;
+        const sortedLots = lots
+          .filter((l) => l.quantity > 0)
+          .sort((a, b) => a.id - b.id); // FIFO
+
+        for (const lot of sortedLots) {
+          if (amountToDecrease <= 0) break;
+          const amountFromLot = Math.min(lot.quantity, amountToDecrease);
+
+          const movementDto: CreateStockMovementDto = {
+            ingredientId,
+            ingredientLotId: lot.id,
+            quantity: amountFromLot,
+            movementType: MovementType.OUT,
+            reason: `Ajuste por auditoría #${savedAudit.id}`,
+            auditId: savedAudit.id,
+          };
+          await this.registerMovement(
+            movementDto,
+            companyId,
+            userId,
+            manager.queryRunner,
+          );
+          amountToDecrease -= amountFromLot;
+        }
+      } else if (difference < 0) {
+        // Surplus
+        const amountToIncrease = Math.abs(difference);
+        if (lastLot) {
+          const movementDto: CreateStockMovementDto = {
+            ingredientId,
+            lotNumber: lastLot.lotNumber,
+            quantity: amountToIncrease,
+            movementType: MovementType.IN,
+            reason: `Ajuste por auditoría #${savedAudit.id}`,
+            unitCost: lastLot.unitCost,
+            auditId: savedAudit.id,
+          };
+          await this.registerMovement(
+            movementDto,
+            companyId,
+            userId,
+            manager.queryRunner,
+          );
+        }
+      }
+
+      return savedAudit;
+    });
+  }
 
   async findHistoryForIngredient(
     ingredientId: number,
@@ -58,16 +155,7 @@ export class StockService {
     }
 
     try {
-      const {
-        menuItemId,
-        ingredientId,
-        quantity,
-        movementType,
-        lotNumber,
-        unitCost,
-        ingredientLotId,
-        menuItemLotId,
-      } = createDto;
+      const { menuItemId, ingredientId, movementType } = createDto;
 
       if (!menuItemId && !ingredientId) {
         throw new BadRequestException(
@@ -132,14 +220,13 @@ export class StockService {
       expirationDate,
     } = createDto;
 
-    if (!lotNumber || unitCost === undefined) {
+    if (lotNumber === undefined || unitCost === undefined) {
       throw new BadRequestException(
         'Para movimientos de ENTRADA, se requiere lotNumber y unitCost.',
       );
     }
 
     let lot: IngredientLot | MenuItemLot;
-    let newStockInLot: number;
     const user = { id: userId } as User;
 
     if (ingredientId) {
@@ -158,7 +245,9 @@ export class StockService {
 
       if (existingLot) {
         existingLot.quantity += quantity;
-        existingLot.unitCost = unitCost; // Opcional: actualizar costo al del último ingreso
+        if (createDto.movementType === MovementType.IN) {
+          existingLot.unitCost = unitCost;
+        }
         lot = await runner.manager.save(existingLot);
       } else {
         const newLot = lotRepo.create({
@@ -171,7 +260,6 @@ export class StockService {
         });
         lot = await runner.manager.save(newLot);
       }
-      newStockInLot = lot.quantity;
 
       const movement = runner.manager.create(StockMovement, {
         ...createDto,
@@ -179,7 +267,7 @@ export class StockService {
         performedBy: user,
         ingredient,
         ingredientLot: lot,
-        stockAfter: newStockInLot,
+        stockAfter: lot.quantity,
         unit: ingredient.unit,
       });
       return runner.manager.save(movement);
@@ -199,7 +287,9 @@ export class StockService {
 
       if (existingLot) {
         existingLot.quantity += quantity;
-        existingLot.unitCost = unitCost;
+        if (createDto.movementType === MovementType.IN) {
+          existingLot.unitCost = unitCost;
+        }
         lot = await runner.manager.save(existingLot);
       } else {
         const newLot = lotRepo.create({
@@ -212,7 +302,6 @@ export class StockService {
         });
         lot = await runner.manager.save(newLot);
       }
-      newStockInLot = lot.quantity;
 
       const movement = runner.manager.create(StockMovement, {
         ...createDto,
@@ -220,8 +309,8 @@ export class StockService {
         performedBy: user,
         menuItem,
         menuItemLot: lot,
-        stockAfter: newStockInLot,
-        unit: 'unit' as any, // MenuItem no tiene unidad, se usa 'unit' por defecto
+        stockAfter: lot.quantity,
+        unit: 'unit' as any,
       });
       return runner.manager.save(movement);
     }
@@ -248,7 +337,6 @@ export class StockService {
     }
 
     let lot: IngredientLot | MenuItemLot;
-    let newStockInLot: number;
     const user = { id: userId } as User;
 
     if (ingredientLotId) {
@@ -294,7 +382,6 @@ export class StockService {
 
     lot.quantity -= quantity;
     await runner.manager.save(lot);
-    newStockInLot = lot.quantity;
 
     const movement = runner.manager.create(StockMovement, {
       ...createDto,
@@ -304,7 +391,7 @@ export class StockService {
       menuItem: menuItemId ? ({ id: menuItemId } as MenuItems) : null,
       ingredientLot: ingredientLotId ? (lot as IngredientLot) : null,
       menuItemLot: menuItemLotId ? (lot as MenuItemLot) : null,
-      stockAfter: newStockInLot,
+      stockAfter: lot.quantity,
       unit:
         'ingredient' in lot ? (lot as any).ingredient.unit : ('unit' as any),
     });

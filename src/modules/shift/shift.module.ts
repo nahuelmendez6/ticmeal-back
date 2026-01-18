@@ -6,11 +6,13 @@ import { ShiftController } from './controllers/shift.controller';
 import { MenuItems } from '../stock/entities/menu-items.entity';
 
 import { StockModule } from '../stock/stock.module';
+import { CostingModule } from '../costing/costing.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Shift, MenuItems]),
     forwardRef(() => StockModule),
+    CostingModule,
   ],
   controllers: [ShiftController],
   providers: [ShiftService],

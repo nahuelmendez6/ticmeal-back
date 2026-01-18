@@ -61,4 +61,8 @@ export class CreateStockMovementDto {
   @IsOptional()
   @IsString()
   relatedTicketId?: string;
+
+  @IsOptional()
+  @IsNumber()
+  auditId?: number;
 }

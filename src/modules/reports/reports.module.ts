@@ -6,10 +6,17 @@ import { StockMovement } from '../stock/entities/stock-movement.entity';
 import { Ticket } from '../tickets/entities/ticket.entity';
 import { Ingredient } from '../stock/entities/ingredient.entity';
 import { MenuItems } from '../stock/entities/menu-items.entity';
+import { StockAudit } from '../stock/entities/stock-audit.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([StockMovement, Ticket, Ingredient, MenuItems]),
+    TypeOrmModule.forFeature([
+      StockMovement,
+      Ticket,
+      Ingredient,
+      MenuItems,
+      StockAudit,
+    ]),
   ],
   controllers: [ReportsController],
   providers: [ReportsService],

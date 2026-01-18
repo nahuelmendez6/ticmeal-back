@@ -13,6 +13,7 @@ import { MovementType, IngredientUnit } from '../enums/enums';
 import { User } from 'src/modules/users/entities/user.entity';
 import { IngredientLot } from './ingredient-lot.entity';
 import { MenuItemLot } from './menu-item-lot.entity';
+import { StockAudit } from './stock-audit.entity';
 
 @Entity('stock_movements')
 export class StockMovement extends BaseTenantEntity {
@@ -67,4 +68,11 @@ export class StockMovement extends BaseTenantEntity {
   @ManyToOne(() => User, { nullable: true, eager: false })
   @JoinColumn({ name: 'performedById' })
   performedBy: User | null;
+
+  @ManyToOne(() => StockAudit, { nullable: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'audit_id' })
+  audit: StockAudit;
+
+  @Column({ name: 'audit_id', nullable: true })
+  auditId: number;
 }

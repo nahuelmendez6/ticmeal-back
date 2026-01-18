@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, Raw } from 'typeorm';
 import { MealShift } from '../entities/meal-shift.entity';
@@ -7,6 +7,7 @@ import { UpdateMealShiftDto } from '../dto/update-meal-shift.dto';
 import { MenuItems } from '../entities/menu-items.entity';
 import { MovementType } from '../enums/enums';
 import { StockService } from './stock.service';
+import { CostingService } from 'src/modules/costing/services/costing.service';
 
 @Injectable()
 export class MealShiftService {
@@ -16,6 +17,8 @@ export class MealShiftService {
     @InjectRepository(MealShift)
     private readonly mealShiftRepository: Repository<MealShift>,
     private readonly stockService: StockService,
+    @Inject(forwardRef(() => CostingService))
+    private readonly costingService: CostingService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -51,6 +54,12 @@ export class MealShiftService {
       });
       const savedMealShift = await queryRunner.manager.save(mealShift);
 
+      // Calculate production cost
+      const productionCost = await this.costingService.calculateMenuItemCost(
+        menuItem.id,
+        companyId,
+      );
+
       // Register stock movement for the produced MenuItem (IN)
       await this.stockService.registerMovement(
         {
@@ -58,7 +67,7 @@ export class MealShiftService {
           quantity: quantityProduced,
           movementType: MovementType.IN,
           reason: 'Producción',
-          unitCost: menuItem.cost,
+          unitCost: productionCost, // Cost per unit
         },
         companyId,
         userId,

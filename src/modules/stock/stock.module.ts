@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Category } from './entities/category.entity';
 import { IngredientCategory } from './entities/ingredient-category.entity';
@@ -24,6 +24,7 @@ import { StockController } from './controllers/stock.controller';
 import { StockService } from './services/stock.service';
 import { IngredientLot } from './entities/ingredient-lot.entity';
 import { MenuItemLot } from './entities/menu-item-lot.entity';
+import { CostingModule } from '../costing/costing.module';
 
 @Module({
   imports: [
@@ -38,7 +39,8 @@ import { MenuItemLot } from './entities/menu-item-lot.entity';
       IngredientLot,
       MenuItemLot,
     ]),
-    ShiftModule,
+    forwardRef(() => ShiftModule),
+    forwardRef(() => CostingModule),
   ],
   controllers: [
     CategoryController,

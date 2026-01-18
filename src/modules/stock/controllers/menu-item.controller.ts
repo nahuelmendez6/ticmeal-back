@@ -8,7 +8,6 @@ import {
   Delete,
   UseGuards,
   ParseIntPipe,
-  Req,
   HttpCode,
   HttpStatus,
   ForbiddenException,
@@ -22,11 +21,33 @@ import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
 import { Roles } from 'src/modules/auth/decorators/roles.decorators';
 import { Tenant } from 'src/common/decorators/tenant-decorator';
 import { MenuItems } from '../entities/menu-items.entity';
+import { CostingService } from 'src/modules/costing/services/costing.service';
+import { CurrentUser } from 'src/modules/auth/decorators/current-user.decorator';
+import { User } from 'src/modules/users/entities/user.entity';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
+@ApiTags('Menu Items')
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('menu-items')
 export class MenuItemController {
-  constructor(private readonly menuItemService: MenuItemService) {}
+  constructor(
+    private readonly menuItemService: MenuItemService,
+    private readonly costingService: CostingService,
+  ) {}
+
+  @Get(':id/theoretical-cost')
+  @Roles('company_admin', 'kitchen_admin')
+  async getTheoreticalCost(
+    @Param('id', ParseIntPipe) id: number,
+    @Tenant() tenantId: number,
+  ): Promise<{ cost: number }> {
+    if (!tenantId) {
+      throw new ForbiddenException('No se pudo determinar el tenant.');
+    }
+    const cost = await this.costingService.calculateMenuItemCost(id, tenantId);
+    return { cost };
+  }
 
   /**
    * Crea un nuevo ítem de menú.
@@ -38,13 +59,12 @@ export class MenuItemController {
   async create(
     @Body() createMenuItemDto: CreateMenuItemDto,
     @Tenant() tenantId: number,
-    @Req() req: any,
+    @CurrentUser() user: User,
   ): Promise<MenuItems> {
     if (!tenantId) {
       throw new ForbiddenException('No se pudo determinar el tenant.');
     }
-    const { id: userId } = req.user;
-    return this.menuItemService.create(createMenuItemDto, tenantId, userId);
+    return this.menuItemService.create(createMenuItemDto, tenantId, user.id);
   }
 
   /**
@@ -92,13 +112,17 @@ export class MenuItemController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateMenuItemDto: UpdateMenuItemDto,
     @Tenant() tenantId: number,
-    @Req() req: any,
+    @CurrentUser() user: User,
   ): Promise<MenuItems> {
     if (!tenantId) {
       throw new ForbiddenException('No se pudo determinar el tenant.');
     }
-    const { id: userId } = req.user;
-    return this.menuItemService.update(id, updateMenuItemDto, tenantId, userId);
+    return this.menuItemService.update(
+      id,
+      updateMenuItemDto,
+      tenantId,
+      user.id,
+    );
   }
 
   /**
