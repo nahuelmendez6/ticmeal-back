@@ -9,6 +9,7 @@ import { MenuItems } from '../../stock/entities/menu-items.entity';
 import { MovementType } from '../../stock/enums/enums';
 import { StockAudit } from 'src/modules/stock/entities/stock-audit.entity';
 import { DateRangeDto } from '../dto/date-range.dto';
+import { StockAuditType } from 'src/modules/stock/enums/stock-audit-type.enum';
 
 @Injectable()
 export class ReportsService {
@@ -28,20 +29,61 @@ export class ReportsService {
   async getInventoryVarianceReport(
     dto: DateRangeDto,
     tenantId: number,
-  ): Promise<{ totalVariance: number }> {
+  ): Promise<any> {
     const { startDate, endDate } = dto;
 
-    const { totalVariance } = await this.stockAuditRepository
+    const audits = await this.stockAuditRepository
       .createQueryBuilder('audit')
-      .select('SUM(audit.difference * audit.unitCostAtAudit)', 'totalVariance')
+      .leftJoinAndSelect('audit.ingredient', 'ingredient')
+      .leftJoinAndSelect('audit.menuItem', 'menuItem')
       .where('audit.companyId = :tenantId', { tenantId })
       .andWhere('audit.auditDate BETWEEN :startDate AND :endDate', {
         startDate,
         endDate,
       })
-      .getRawOne();
+      .orderBy('audit.auditDate', 'ASC')
+      .getMany();
 
-    return { totalVariance: parseFloat(totalVariance) || 0 };
+    let totalVariance = 0;
+    let totalPositiveVariance = 0; // Surplus
+    let totalNegativeVariance = 0; // Shortage
+    let totalAudits = audits.length;
+
+    const detailedAudits = audits.map((audit) => {
+      const monetaryDifference = audit.difference * audit.unitCostAtAudit;
+      totalVariance += monetaryDifference;
+
+      if (monetaryDifference > 0) {
+        totalPositiveVariance += monetaryDifference;
+      } else {
+        totalNegativeVariance += monetaryDifference;
+      }
+
+      return {
+        id: audit.id,
+        auditDate: audit.auditDate,
+        auditType: audit.auditType,
+        itemName: audit.auditType === StockAuditType.INGREDIENT ? audit.ingredient?.name : audit.menuItem?.name,
+        itemId: audit.auditType === StockAuditType.INGREDIENT ? audit.ingredientId : audit.menuItemId,
+        theoreticalStock: audit.theoreticalStock,
+        physicalStock: audit.physicalStock,
+        differenceQuantity: audit.difference,
+        unitCostAtAudit: audit.unitCostAtAudit,
+        monetaryDifference: monetaryDifference,
+        observations: audit.observations,
+      };
+    });
+
+    return {
+      summary: {
+        totalAudits,
+        totalVariance: parseFloat(totalVariance.toFixed(2)),
+        totalPositiveVariance: parseFloat(totalPositiveVariance.toFixed(2)),
+        totalNegativeVariance: parseFloat(totalNegativeVariance.toFixed(2)),
+        period: { startDate, endDate },
+      },
+      details: detailedAudits,
+    };
   }
 
   async getStockMovementsReport(
