@@ -15,6 +15,7 @@ import { IngredientLot } from '../entities/ingredient-lot.entity';
 import { MenuItemLot } from '../entities/menu-item-lot.entity';
 import { CreateStockAuditDto } from '../dto/create-stock-audit.dto';
 import { StockAudit } from '../entities/stock-audit.entity';
+import { StockAuditType } from '../enums/stock-audit-type.enum';
 
 @Injectable()
 export class StockService {
@@ -25,6 +26,8 @@ export class StockService {
     private readonly ingredientRepo: Repository<Ingredient>,
     @InjectRepository(IngredientLot)
     private readonly ingredientLotRepo: Repository<IngredientLot>,
+    @InjectRepository(MenuItemLot)
+    private readonly menuItemLotRepo: Repository<MenuItemLot>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -33,29 +36,61 @@ export class StockService {
     companyId: number,
     userId: number,
   ): Promise<StockAudit> {
-    const { ingredientId, physicalStock, observations } = auditData;
+    const { auditType, ingredientId, menuItemId, physicalStock, observations } = auditData;
+
+    if (auditType === StockAuditType.INGREDIENT && !ingredientId) {
+      throw new BadRequestException('ingredientId es requerido para auditorías de INGREDIENT.');
+    }
+    if (auditType === StockAuditType.MENU_ITEM && !menuItemId) {
+      throw new BadRequestException('menuItemId es requerido para auditorías de MENU_ITEM.');
+    }
+    if (ingredientId && menuItemId) {
+      throw new BadRequestException('No puede proporcionar ingredientId y menuItemId simultáneamente.');
+    }
 
     return this.dataSource.transaction(async (manager) => {
-      const ingredient = await manager.findOneBy(Ingredient, {
-        id: ingredientId,
-        companyId,
-      });
-      if (!ingredient) {
-        throw new NotFoundException('Ingrediente no encontrado.');
+      let theoreticalStock = 0;
+      let unitCostAtAudit = 0;
+      let entity: Ingredient | MenuItems;
+      let lots: (IngredientLot | MenuItemLot)[];
+      let lastLot: IngredientLot | MenuItemLot;
+
+      if (auditType === StockAuditType.INGREDIENT) {
+        entity = await manager.findOneBy(Ingredient, {
+          id: ingredientId,
+          companyId,
+        });
+        if (!entity) {
+          throw new NotFoundException('Ingrediente no encontrado.');
+        }
+        lots = await manager.find(IngredientLot, {
+          where: { ingredient: { id: ingredientId }, companyId },
+        });
+        theoreticalStock = lots.reduce((sum, lot) => sum + lot.quantity, 0);
+        lastLot = lots.sort((a, b) => b.id - a.id)[0];
+        unitCostAtAudit = lastLot ? lastLot.unitCost : 0;
+      } else { // StockAuditType.MENU_ITEM
+        entity = await manager.findOneBy(MenuItems, {
+          id: menuItemId,
+          companyId,
+        });
+        if (!entity) {
+          throw new NotFoundException('Ítem de menú no encontrado.');
+        }
+        lots = await manager.find(MenuItemLot, {
+          where: { menuItem: { id: menuItemId }, companyId },
+        });
+        theoreticalStock = lots.reduce((sum, lot) => sum + lot.quantity, 0);
+        lastLot = lots.sort((a, b) => b.id - a.id)[0];
+        unitCostAtAudit = lastLot ? lastLot.unitCost : 0;
       }
 
-      const lots = await manager.find(IngredientLot, {
-        where: { ingredient: { id: ingredientId }, companyId },
-      });
-
-      const theoreticalStock = lots.reduce((sum, lot) => sum + lot.quantity, 0);
       const difference = theoreticalStock - physicalStock;
 
-      const lastLot = lots.sort((a, b) => b.id - a.id)[0];
-      const unitCostAtAudit = lastLot ? lastLot.unitCost : 0;
-
       const audit = manager.create(StockAudit, {
-        ingredientId,
+        auditType,
+        ingredientId: auditType === StockAuditType.INGREDIENT ? ingredientId : null,
+        menuItemId: auditType === StockAuditType.MENU_ITEM ? menuItemId : null,
         companyId,
         physicalStock,
         theoreticalStock,
@@ -78,8 +113,10 @@ export class StockService {
           const amountFromLot = Math.min(lot.quantity, amountToDecrease);
 
           const movementDto: CreateStockMovementDto = {
-            ingredientId,
-            ingredientLotId: lot.id,
+            ingredientId: auditType === StockAuditType.INGREDIENT ? ingredientId : null,
+            menuItemId: auditType === StockAuditType.MENU_ITEM ? menuItemId : null,
+            ingredientLotId: auditType === StockAuditType.INGREDIENT ? (lot as IngredientLot).id : null,
+            menuItemLotId: auditType === StockAuditType.MENU_ITEM ? (lot as MenuItemLot).id : null,
             quantity: amountFromLot,
             movementType: MovementType.OUT,
             reason: `Ajuste por auditoría #${savedAudit.id}`,
@@ -98,7 +135,8 @@ export class StockService {
         const amountToIncrease = Math.abs(difference);
         if (lastLot) {
           const movementDto: CreateStockMovementDto = {
-            ingredientId,
+            ingredientId: auditType === StockAuditType.INGREDIENT ? ingredientId : null,
+            menuItemId: auditType === StockAuditType.MENU_ITEM ? menuItemId : null,
             lotNumber: lastLot.lotNumber,
             quantity: amountToIncrease,
             movementType: MovementType.IN,

@@ -1,9 +1,18 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString, IsEnum } from 'class-validator';
+import { StockAuditType } from '../enums/stock-audit-type.enum';
 
 export class CreateStockAuditDto {
-  @IsNumber()
+  @IsEnum(StockAuditType)
   @IsNotEmpty()
-  ingredientId: number;
+  auditType: StockAuditType;
+
+  @IsNumber()
+  @IsOptional()
+  ingredientId?: number;
+
+  @IsNumber()
+  @IsOptional()
+  menuItemId?: number;
 
   @IsNumber()
   @IsNotEmpty()
